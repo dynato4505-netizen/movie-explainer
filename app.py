@@ -25,7 +25,8 @@ if st.button("សម្រាយរឿងឥឡូវនេះ 🚀"):
                 prompt = f"សូមសម្រាយរឿង '{movie_title}' ជាភាសាខ្មែរឱ្យបានលម្អិត គួរឱ្យចាប់អារម្មណ៍ និងយល់ងាយ។ {prompt_details}"
                 
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model=',model='gemini-2.5-flash'
+
                     contents=prompt,
                 )
                 
