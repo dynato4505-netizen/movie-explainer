@@ -24,7 +24,7 @@ if st.button("សម្រាយរឿងឥឡូវនេះ 🚀"):
                 prompt = f"សូមសម្រាយរឿង '{movie_title}' ជាភាសាខ្មែរឱ្យបានក្បោះក្បាយ និងទាក់ទាញ។ ព័ត៌មានបន្ថែម៖ {prompt_details}"
                 
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-3.6-flash',
                     contents=prompt,
                 )
                 
@@ -41,5 +41,5 @@ if st.button("សម្រាយរឿងឥឡូវនេះ 🚀"):
                 st.audio(audio_file)
                 
             except Exception as e:
-                st.error(f"មានបញ្តហាកើតឡើង: {e}")
+                st.error(f"មានបញ្ហាកើតឡើង: {e}")
                 
