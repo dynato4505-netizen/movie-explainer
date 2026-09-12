@@ -2,44 +2,61 @@ import streamlit as st
 from google import genai
 from gtts import gTTS
 import os
+import tempfile
 
-st.set_page_config(page_title="Movie Explainer & Recap App")
+st.set_page_config(page_title="Movie Dubbing & Explainer App")
 
-st.title("🎬 Movie Explainer & Recap App")
-st.write("បញ្ចូលឈ្មោះរឿង និងព័ត៌មានបន្ថែម ដើម្បីឱ្យ AI ជួយសម្រាយរឿង និងបង្កើតសំឡេងអានជូន!")
+st.title("🎬 AI Movie Dubbing & Explainer App")
+st.write("Upload វីដេអូបរទេសរបស់អ្នក ដើម្បីឱ្យ AI ជួយបកប្រែ និងបង្កើតជាសំឡេងខ្មែរជូន!")
 
 api_key = st.text_input("បញ្ចូល Gemini API Key របស់អ្នក:", type="password")
-movie_title = st.text_input("ឈ្មោះរឿង (Movie Title):")
-prompt_details = st.text_area("ព័ត៌មានបន្ថែម ឬសាច់រឿងសង្ខេប (Optional):")
 
-if st.button("សម្រាយរឿងឥឡូវនេះ 🚀"):
+# មុខងារ Upload វីដេអូ
+uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូបរទេស (MP4, MOV):", type=["mp4", "mov", "avi"])
+
+if uploaded_file is not None:
+    # បង្ហាញវីដេអូដែលបាន Upload
+    st.video(uploaded_file)
+    
+if st.button("ចាប់ផ្តើមបកប្រែ និង Dubbing 🚀"):
     if not api_key:
         st.error("សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
-    elif not movie_title:
-        st.warning("សូមបញ្ចូលឈ្មោះរឿង!")
+    elif uploaded_file is None:
+        st.warning("សូម Upload វីដេអូជាមុនសិន!")
     else:
-        with st.spinner("កំពុងសម្រាយរឿង និងបង្កើតសំឡេង..."):
+        with st.spinner("កំពុងអានវីដេអូ និងបកប្រែជាភាសាខ្មែរ..."):
             try:
+                # ផ្ទេរ File ទៅ Temporary file ដើម្បីឱ្យ Gemini SDK អានបាន
+                tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+                tfile.write(uploaded_file.read())
+                video_path = tfile.name
+
                 client = genai.Client(api_key=api_key)
-                prompt = f"សូមសម្រាយរឿង '{movie_title}' ជាភាសាខ្មែរឱ្យបានក្បោះក្បាយ និងទាក់ទាញ។ ព័ត៌មានបន្ថែម៖ {prompt_details}"
+
+                # Upload វីដេអូទៅកាន់ Gemini Files API
+                st.info("កំពុងបញ្ជូនវីដេអូទៅកាន់ Gemini AI...")
+                video_file = client.files.upload(file=video_path)
+
+                # បញ្ជាឱ្យ AI មើលវីដេអូ និងបកប្រែ
+                prompt = "សូមទស្សនាវីដេអូនេះ ស្ដាប់សំឡេង និងសរសេរបកប្រែសាច់រឿងជាភាសាខ្មែរឱ្យបានក្បោះក្បាយ និងទាក់ទាញ ដើម្បីធ្វើការ Dubbing សំឡេង។"
                 
                 response = client.models.generate_content(
-                    model='gemini-3.6-flash',
-                    contents=prompt,
+                    model='gemini-2.5-pro',
+                    contents=[video_file, prompt],
                 )
                 
                 recap_text = response.text
-                st.subheader("📝 អត្ថបទសម្រាយរឿង:")
+                st.subheader("📝 អត្ថបទបកប្រែជាភាសាខ្មែរ:")
                 st.write(recap_text)
                 
-                # បង្កើត Audio ដោយ gTTS
+                # បង្កើត Audio ខ្មែរដោយ gTTS
                 tts = gTTS(text=recap_text, lang='km')
-                audio_file = "recap_audio.mp3"
+                audio_file = "dubbed_audio.mp3"
                 tts.save(audio_file)
                 
-                st.subheader("🔊 សំឡេងសម្រាយរឿង:")
+                st.subheader("🔊 សំឡេងបកប្រែភាសាខ្មែរ (Dubbing):")
                 st.audio(audio_file)
                 
             except Exception as e:
                 st.error(f"មានបញ្ហាកើតឡើង: {e}")
-                
+            
