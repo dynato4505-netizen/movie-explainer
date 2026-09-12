@@ -3,12 +3,11 @@ from google import genai
 from gtts import gTTS
 import os
 import tempfile
-import subprocess
 
-st.set_page_config(page_title="Movie Dubbing & Explainer App")
+st.set_page_config(page_title="Movie Subtitle & Dubbing App")
 
-st.title("🎬 AI Movie Dubbing & Explainer App")
-st.write("Upload វីដេអូរបស់អ្នក (រហូតដល់ ៣នាទី) ដើម្បីឱ្យ AI ជួយបកប្រែ និងធ្វើជាសំឡេងខ្មែរជូន!")
+st.title("🎬 AI Movie Subtitle & Dubbing App")
+st.write("Upload វីដេអូខ្លី ដើម្បីឱ្យ AI បកប្រែជា Subtitle ខ្មែរ និងសំឡេង Dubbing!")
 
 api_key = st.text_input("បញ្ចូល Gemini API Key របស់អ្នក:", type="password")
 
@@ -17,47 +16,41 @@ uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP
 if uploaded_file is not None:
     st.video(uploaded_file)
     
-if st.button("ចាប់ផ្តើមបកប្រែ និង Dubbing 🚀"):
+if st.button("ចាប់ផ្តើមបកប្រែ Subtitle និងសំឡេង 🚀"):
     if not api_key:
         st.error("សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
     elif uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
     else:
-        with st.spinner("កំពុងទាញយកសំឡេង និងបកប្រែជាភាសាខ្មែរ..."):
+        with st.spinner("កំពុងវិភាគវីដេអូ និងបង្កើត Subtitle ខ្មែរ..."):
             try:
-                # ទុកវីដេអូក្នុង Temporary file
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                 tfile.write(uploaded_file.read())
                 video_path = tfile.name
 
-                # កាត់យកតែសំឡេង (Audio) ចេញពីវីដេអូ ដើម្បីកុំឱ្យធ្ងន់ និងមិន Error
-                audio_path = video_path.replace('.mp4', '.mp3')
-                subprocess.run(['ffmpeg', '-i', video_path, '-q:a', '0', '-map', 'a', audio_path], check=True)
-
                 client = genai.Client(api_key=api_key)
 
-                st.info("កំពុងបញ្ជូនសំឡេងទៅកាន់ Gemini AI...")
-                audio_file_ref = client.files.upload(file=audio_path)
+                st.info("កំពុងបញ្ជូនវីដេអូទៅកាន់ Gemini AI...")
+                video_file = client.files.upload(file=video_path)
 
-                prompt = "សូមស្ដាប់សំឡេងក្នុងឯកសារនេះ ហើយសរសេរបកប្រែសាច់រឿងជាភាសាខ្មែរឱ្យបានក្បោះក្បាយ និងទាក់ទាញ។"
+                prompt = "សូមទស្សនាវីដេអូនេះ ស្ដាប់សំឡេង និងសរសេរបកប្រែសាច់រឿងជាភាសាខ្មែរ ចែកចេញជាឃ្លាៗ (Subtitle) សម្រាប់យកទៅដាក់ក្នុង CapCut។"
                 
                 response = client.models.generate_content(
                     model='gemini-3.6-flash',
-                    contents=[audio_file_ref, prompt],
+                    contents=[video_file, prompt],
                 )
                 
-                recap_text = response.text
-                st.subheader("📝 អត្ថបទបកប្រែជាភាសាខ្មែរ:")
-                st.write(recap_text)
+                sub_text = response.text
+                st.subheader("📝 អត្ថបទ Subtitle ភាសាខ្មែរ (សម្រាប់ Copy ដាក់ CapCut):")
+                st.text_area("Copy Subtitle ទីនេះ:", sub_text, height=200)
                 
-                # បង្កើតជាសំឡេងអានខ្មែរ
-                tts = gTTS(text=recap_text, lang='km')
+                tts = gTTS(text=sub_text, lang='km')
                 output_audio = "dubbed_audio.mp3"
                 tts.save(output_audio)
                 
-                st.subheader("🔊 សំឡេងបកប្រែភាសាខ្មែរ (Dubbing):")
+                st.subheader("🔊 សំឡេងអានខ្មែរ (Audio):")
                 st.audio(output_audio)
                 
             except Exception as e:
                 st.error(f"មានបញ្ហាកើតឡើង: {e}")
-                
+             
