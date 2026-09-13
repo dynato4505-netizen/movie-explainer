@@ -38,16 +38,21 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
         try:
             client = genai.Client(api_key=api_key)
             
-            with st.spinner("កំពុងដំណើរការវីដេអូ និងបង្កើត Subtitle..."):
+            with st.spinner("កំពុងដំណើរការវីដេអូ និងបកប្រែតាមសាច់រឿងលម្អិត..."):
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                 tfile.write(uploaded_file.read())
                 video_path = tfile.name
 
                 video_file = client.files.upload(file=video_path)
                 
-                prompt = "Translate the speech in this video into natural Khmer subtitles. Provide 3 to 5 concise and meaningful sentences representing the dialogue."
+                # Prompt ថ្មីសម្រាប់បកប្រែតាមសាច់រឿងពេញលេញ និងលម្អិត
+                prompt = (
+                    "Listen carefully to the entire dialogue and narrative in this video. "
+                    "Translate all spoken parts and key storyline dialogues into natural, smooth Khmer subtitles line-by-line "
+                    "following the flow of the story. Do not just summarize; provide a comprehensive translation "
+                    "that covers the full sequence of events in the video."
+                )
                 
-                # Using gemini-3.6-flash as recommended by Google API
                 response = client.models.generate_content(
                     model='gemini-3.6-flash',
                     contents=[video_file, prompt]
@@ -55,12 +60,12 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
                 
                 translated_text = response.text
 
-            st.success("បកប្រែ Subtitle ខ្មែរបានជោគជ័យ!")
+            st.success("បកប្រែ Subtitle តាមសាច់រឿងបានជោគជ័យ!")
             
-            st.subheader("📝 អត្ថបទ Subtitle ខ្មែរ (សម្រាប់ Copy ដាក់ CapCut):")
+            st.subheader("📝 អត្ថបទ Subtitle ខ្មែរ (តាមសាច់រឿងពេញ):")
             st.info(translated_text)
 
-            with st.spinner("កំពុងបង្កើតសំឡេង Dubbing ធម្មជាតិ..."):
+            with st.spinner("កំពុងបង្កើតសំឡេង Dubbing តាមសាច់រឿង..."):
                 audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
                 asyncio.run(generate_audio(translated_text, selected_voice, audio_path))
 
