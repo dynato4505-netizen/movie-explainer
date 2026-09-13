@@ -4,10 +4,10 @@ from gtts import gTTS
 import os
 import tempfile
 
-st.set_page_config(page_title="Movie Subtitle & Dubbing App")
+st.set_page_config(page_title="Movie Subtitle & Dubbing Pro App")
 
-st.title("🎬 AI Movie Subtitle & Dubbing App")
-st.write("Upload វីដេអូខ្លី ដើម្បីឱ្យ AI បកប្រែជា Subtitle ខ្មែរ និងសំឡេង Dubbing!")
+st.title("🎬 AI Movie Subtitle & Dubbing Pro")
+st.write("Upload វីដេអូខ្លី ដើម្បីឱ្យ AI បកប្រែជា Subtitle ខ្មែរ និងបង្កើតសំឡេង Dubbing ព្រមទាំងអាច Download បាន!")
 
 api_key = st.text_input("បញ្ចូល Gemini API Key របស់អ្នក:", type="password")
 
@@ -16,13 +16,13 @@ uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP
 if uploaded_file is not None:
     st.video(uploaded_file)
     
-if st.button("ចាប់ផ្តើមបកប្រែ Subtitle និងសំឡេង 🚀"):
+if st.button("ចាប់ផ្តើមបកប្រែ Subtitle និងបង្កើតសំឡេង 🚀"):
     if not api_key:
         st.error("សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
     elif uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
     else:
-        with st.spinner("កំពុងវិភាគវីដេអូ និងបង្កើត Subtitle ខ្មែរ..."):
+        with st.spinner("កំពុងវិភាគវីដេអូ បង្កើត Subtitle ខ្មែរ និងសំឡេង..."):
             try:
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                 tfile.write(uploaded_file.read())
@@ -41,16 +41,35 @@ if st.button("ចាប់ផ្តើមបកប្រែ Subtitle និង�
                 )
                 
                 sub_text = response.text
-                st.subheader("📝 អត្ថបទ Subtitle ភាសាខ្មែរ (សម្រាប់ Copy ដាក់ CapCut):")
-                st.text_area("Copy Subtitle ទីនេះ:", sub_text, height=200)
+                st.subheader("📝 អត្ថបទ Subtitle ភាសាខ្មែរ:")
+                st.text_area("Copy Subtext ទីនេះ ឬ Download ខាងក្រោម:", sub_text, height=185)
                 
+                # ប៊ូតុងសម្រាប់ Download Subtitle ជា File .txt
+                st.download_button(
+                    label="📥 Download Subtitle ជា File (.txt)",
+                    data=sub_text,
+                    file_name="khmer_subtitle.txt",
+                    mime="text/plain"
+                )
+                
+                # បង្កើតសំឡេងអាន
                 tts = gTTS(text=sub_text, lang='km')
-                output_audio = "dubbed_audio.mp3"
+                output_audio = "khmer_dubbed_audio.mp3"
                 tts.save(output_audio)
                 
-                st.subheader("🔊 សំឡេងអានខ្មែរ (Audio):")
+                st.subheader("🔊 សំឡេងអានខ្មែរ (Audio Dubbing):")
                 st.audio(output_audio)
+                
+                # ប៊ូតុងសម្រាប់ Download សំឡេងជា File .mp3
+                with open(output_audio, "rb") as audio_file:
+                    audio_bytes = audio_file.read()
+                    st.download_button(
+                        label="📥 Download សំឡេង Dubbing ជា File (.mp3)",
+                        data=audio_bytes,
+                        file_name="khmer_dubbing.mp3",
+                        mime="audio/mp3"
+                    )
                 
             except Exception as e:
                 st.error(f"មានបញ្ហាកើតឡើង: {e}")
-             
+                
