@@ -38,19 +38,20 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
         try:
             client = genai.Client(api_key=api_key)
             
-            with st.spinner("កំពុងដំណើរការវីដេអូ និងបកប្រែតាមសាច់រឿងលម្អិត..."):
+            with st.spinner("កំពុងដំណើរការវីដេអូ និងទាញយកសាច់រឿងសុទ្ធ..."):
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                 tfile.write(uploaded_file.read())
                 video_path = tfile.name
 
                 video_file = client.files.upload(file=video_path)
                 
-                # Prompt ថ្មីសម្រាប់បកប្រែតាមសាច់រឿងពេញលេញ និងលម្អិត
+                # Prompt ថ្មីដែលហាមដាច់ខាតមិនឱ្យដាក់ Timestamp, ឈ្មោះតួអង្គ ឬសញ្ញាខ្វែង គឺយកតែអត្ថបទសាច់រឿងរលូនៗសុទ្ធសាធ
                 prompt = (
-                    "Listen carefully to the entire dialogue and narrative in this video. "
-                    "Translate all spoken parts and key storyline dialogues into natural, smooth Khmer subtitles line-by-line "
-                    "following the flow of the story. Do not just summarize; provide a comprehensive translation "
-                    "that covers the full sequence of events in the video."
+                    "Listen to the dialogue and narration in this video and write down a smooth, continuous story in natural Khmer. "
+                    "CRITICAL INSTRUCTIONS: "
+                    "1. Do NOT include any timestamps (like [01:31 - 01:40] or similar time markers). "
+                    "2. Do NOT include character names, tags, bullet points, or brackets. "
+                    "3. Provide ONLY the pure narrative text or storyline prose in fluent Khmer sentences so it reads like a continuous story script."
                 )
                 
                 response = client.models.generate_content(
@@ -60,9 +61,9 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
                 
                 translated_text = response.text
 
-            st.success("បកប្រែ Subtitle តាមសាច់រឿងបានជោគជ័យ!")
+            st.success("បកប្រែសាច់រឿងបានជោគជ័យ!")
             
-            st.subheader("📝 អត្ថបទ Subtitle ខ្មែរ (តាមសាច់រឿងពេញ):")
+            st.subheader("📝 អត្ថបទសាច់រឿងសុទ្ធសាធ (សម្រាប់ Copy ដាក់ CapCut):")
             st.info(translated_text)
 
             with st.spinner("កំពុងបង្កើតសំឡេង Dubbing តាមសាច់រឿង..."):
@@ -76,4 +77,4 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
     else:
         st.warning("សូម Upload វីដេអូមុននឹងចាប់ផ្តើម!")
-        
+            
