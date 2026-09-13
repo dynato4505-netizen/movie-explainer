@@ -20,7 +20,6 @@ with st.sidebar:
         ("Sreymom (ស្រី - ធម្មជាតិ)", "Piseth (ប្រុស - ធម្មជាតិ)")
     )
     
-    # กำหนด Voice Name របស់ edge-tts សម្រាប់ភាសាខ្មែរ
     if "Sreymom" in voice_option:
         selected_voice = "km-KH-SreymomNeural"
     else:
@@ -37,24 +36,20 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
         st.error("សូមបញ្ចូល Google Gemini API Key នៅកន្លែង Settings ខាងឆ្វេងជាមុនសិន!")
     elif uploaded_file is not None:
         try:
-            # Initialize Gemini Client with new API
             client = genai.Client(api_key=api_key)
             
             with st.spinner("កំពុងដំណើរការវីដេអូ និងបង្កើត Subtitle..."):
-                # Save uploaded video temporarily
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                 tfile.write(uploaded_file.read())
                 video_path = tfile.name
 
-                # Upload file to Gemini API
                 video_file = client.files.upload(file=video_path)
                 
-                # Prompt for video translation
                 prompt = "Translate the speech in this video into natural Khmer subtitles. Provide 3 to 5 concise and meaningful sentences representing the dialogue."
                 
-                # Using gemini-2.5-flash for google-genai SDK
+                # Using gemini-3.6-flash as recommended by Google API
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-3.6-flash',
                     contents=[video_file, prompt]
                 )
                 
@@ -65,7 +60,6 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
             st.subheader("📝 អត្ថបទ Subtitle ខ្មែរ (សម្រាប់ Copy ដាក់ CapCut):")
             st.info(translated_text)
 
-            # Generate Edge-TTS Audio
             with st.spinner("កំពុងបង្កើតសំឡេង Dubbing ធម្មជាតិ..."):
                 audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
                 asyncio.run(generate_audio(translated_text, selected_voice, audio_path))
@@ -77,4 +71,4 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
     else:
         st.warning("សូម Upload វីដេអូមុននឹងចាប់ផ្តើម!")
-                                                    
+        
