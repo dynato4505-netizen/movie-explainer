@@ -7,11 +7,11 @@ import tempfile
 
 st.set_page_config(page_title="AI Movie Subtitle & Dubbing Pro", page_icon="🎬")
 
-st.title("🎬 AI Movie Subtitle & Dubbing Pro")
-st.write("បកប្រែវីដេអូជា Subtitle ខ្មែរ និងបង្កើតសំឡេង Dubbing ធម្មជាតិពិោះៗ (ប្រុស/ស្រី) ដូចមនុស្សពិត!")
-
-# ផ្នែកកំណត់ការ Settings (Sidebar)
+# ផ្នែកកំណត់ការ Settings & ដាក់រូបភាពក្នុង Sidebar
 with st.sidebar:
+    if os.path.exists("profile.jpg"):
+        st.image("profile.jpg", caption="Admin App", use_container_width=True)
+    
     st.header("⚙️ ការកំណត់ (Settings)")
     api_key = st.text_input("បញ្ចូល Google Gemini API Key:", type="password")
     
@@ -24,6 +24,9 @@ with st.sidebar:
         selected_voice = "km-KH-SreymomNeural"
     else:
         selected_voice = "km-KH-PisethNeural"
+
+st.title("🎬 AI Movie Subtitle & Dubbing Pro")
+st.write("បកប្រែវីដេអូជា Subtitle ខ្មែរ និងបង្កើតសំឡេង Dubbing ធម្មជាតិពិោះៗ (ប្រុស/ស្រី) ដូចមនុស្សពិត!")
 
 uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP4, MOV, AVI):", type=["mp4", "mov", "avi"])
 
@@ -45,7 +48,6 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
 
                 video_file = client.files.upload(file=video_path)
                 
-                # Prompt ថ្មីសម្រាប់ការសន្ទនាតគ្នាទៅវិញទៅមកតាមសាច់រឿង គ្មានដាក់ Timestamp
                 prompt = (
                     "Listen closely to the video and write out the full dialogue and conversation story in natural Khmer. "
                     "CRITICAL INSTRUCTIONS: "
@@ -77,4 +79,4 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
     else:
         st.warning("សូម Upload វីដេអូមុននឹងចាប់ផ្តើម!")
-        
+            
