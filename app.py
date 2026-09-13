@@ -2,7 +2,6 @@ import streamlit as st
 from google import genai
 import asyncio
 import edge_tts
-import os
 import tempfile
 
 st.set_page_config(page_title="AI Movie Subtitle & Dubbing Pro", page_icon="🎬")
@@ -21,20 +20,12 @@ with st.sidebar:
     else:
         selected_voice = "km-KH-PisethNeural"
 
-# បង្ហាញរូបថតតាមឈ្មោះពិតដែលស្ថិតនៅលើ GitHub របស់បង
-# (ប្រសិនបើឈ្មោះរូបភាពខុសពីនេះ សូមប្ដូរអក្សរក្នុងរង្វង់ក្រចកខាងក្រោមឱ្យត្រូវនឹងឈ្មោះរូបភាពពិតប្រាកដ)
-profile_image_name = "Screenshot_20260117_171139_Facebook.jpg"
-
-if os.path.exists(profile_image_name):
-    st.image(profile_image_name, caption="Admin App Profile", use_container_width=True)
-
 st.title("🎬 AI Movie Subtitle & Dubbing Pro")
 st.write("បកប្រែវីដេអូយូរម៉ោងជា Subtitle ខ្មែរ និងបង្កើតសំឡេង Dubbing ពេញលេញដោយរលូន!")
 
 uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP4, MOV, AVI):", type=["mp4", "mov", "avi"])
 
 async def generate_long_audio(text, voice, output_path):
-    # បែងចែកអត្ថបទវែងៗជាកំណាត់ៗ ដើម្បីការពារកុំឱ្យសំឡេងខើច ឬកាត់ផ្តាច់ពាក់កណ្តាល
     max_chars = 3000
     text_chunks = [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
     
@@ -45,7 +36,6 @@ async def generate_long_audio(text, voice, output_path):
         await communicate.save(chunk_path)
         temp_files.append(chunk_path)
     
-    # ផ្គុំបញ្ចូល File សំឡេងទាំងអស់ចូលគ្នាជា File តែមួយពេញលេញ
     with open(output_path, 'wb') as outfile:
         for f_path in temp_files:
             with open(f_path, 'rb') as infile:
@@ -76,7 +66,7 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
                 )
                 
                 response = client.models.generate_content(
-                    model='gemini-3.6-flash',
+                    model='gemini-2.5-flash',
                     contents=[video_file, prompt]
                 )
                 
@@ -98,4 +88,4 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
     else:
         st.warning("សូម Upload វីដេអូមុននឹងចាប់ផ្តើម!")
-                
+            
