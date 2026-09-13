@@ -52,9 +52,9 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
                 # Prompt for video translation
                 prompt = "Translate the speech in this video into natural Khmer subtitles. Provide 3 to 5 concise and meaningful sentences representing the dialogue."
                 
-                # Using gemini-1.5-flash without 'models/' prefix
+                # Using gemini-2.5-flash for the new google-genai library
                 response = client.models.generate_content(
-                    model='gemini-1.5-flash',
+                    model='gemini-2.5-flash',
                     contents=[video_file, prompt]
                 )
                 
@@ -77,4 +77,4 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
     else:
         st.warning("សូម Upload វីដេអូមុននឹងចាប់ផ្តើម!")
-    
+        
