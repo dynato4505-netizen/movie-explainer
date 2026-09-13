@@ -7,11 +7,8 @@ import tempfile
 
 st.set_page_config(page_title="AI Movie Subtitle & Dubbing Pro", page_icon="🎬")
 
-# ផ្នែកកំណត់ការ Settings & ដាក់រូបភាពក្នុង Sidebar
+# ផ្នែកកំណត់ការ Settings (Sidebar ធម្មតា)
 with st.sidebar:
-    if os.path.exists("profile.jpg"):
-        st.image("profile.jpg", caption="Admin App", use_container_width=True)
-    
     st.header("⚙️ ការកំណត់ (Settings)")
     api_key = st.text_input("បញ្ចូល Google Gemini API Key:", type="password")
     
@@ -24,6 +21,10 @@ with st.sidebar:
         selected_voice = "km-KH-SreymomNeural"
     else:
         selected_voice = "km-KH-PisethNeural"
+
+# បង្ហាញរូបថតផ្ទាល់ខ្លួនរបស់បងចំកណ្តាលអេក្រង់តែម្តង
+if os.path.exists("profile.jpg"):
+    st.image("profile.jpg", caption="Admin App Profile", use_container_width=True)
 
 st.title("🎬 AI Movie Subtitle & Dubbing Pro")
 st.write("បកប្រែវីដេអូជា Subtitle ខ្មែរ និងបង្កើតសំឡេង Dubbing ធម្មជាតិពិោះៗ (ប្រុស/ស្រី) ដូចមនុស្សពិត!")
@@ -79,4 +80,4 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
     else:
         st.warning("សូម Upload វីដេអូមុននឹងចាប់ផ្តើម!")
-            
+    
