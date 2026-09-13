@@ -40,7 +40,7 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
             # Initialize Gemini Client with new API
             client = genai.Client(api_key=api_key)
             
-            with st.spinner("กำลังประมวลผลវីដេអូ និងបង្កើត Subtitle..."):
+            with st.spinner("កំពុងដំណើរការវីដេអូ និងបង្កើត Subtitle..."):
                 # Save uploaded video temporarily
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                 tfile.write(uploaded_file.read())
@@ -52,9 +52,9 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
                 # Prompt for video translation
                 prompt = "Translate the speech in this video into natural Khmer subtitles. Provide 3 to 5 concise and meaningful sentences representing the dialogue."
                 
-                # Using gemini-1.5-flash for stable and fast processing
+                # Using models/gemini-1.5-flash for stable processing
                 response = client.models.generate_content(
-                    model='gemini-1.5-flash',
+                    model='models/gemini-1.5-flash',
                     contents=[video_file, prompt]
                 )
                 
@@ -66,7 +66,7 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
             st.info(translated_text)
 
             # Generate Edge-TTS Audio
-            with st.spinner("กำลังបង្កើតសំឡេង Dubbing ធម្មជាតិ..."):
+            with st.spinner("កំពុងបង្កើតសំឡេង Dubbing ធម្មជាតិ..."):
                 audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
                 asyncio.run(generate_audio(translated_text, selected_voice, audio_path))
 
@@ -74,7 +74,7 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
             st.audio(audio_path)
 
         except Exception as e:
-            st.error(f"មានបញ្តុកើតឡើង: {e}")
+            st.error(f"មានបញ្ហាកើតឡើង: {e}")
     else:
         st.warning("សូម Upload វីដេអូមុននឹងចាប់ផ្តើម!")
         
