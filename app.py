@@ -21,9 +21,12 @@ with st.sidebar:
     else:
         selected_voice = "km-KH-PisethNeural"
 
-# បង្ហាញរូបថតផ្ទាល់ខ្លួនចំកណ្តាលអេក្រង់ (ត្រូវធានាថាបាន Upload file 'profile.jpg' ចូល GitHub ហើយ)
-if os.path.exists("profile.jpg"):
-    st.image("profile.jpg", caption="Admin App Profile", use_container_width=True)
+# បង្ហាញរូបថតតាមឈ្មោះពិតដែលស្ថិតនៅលើ GitHub របស់បង
+# (ប្រសិនបើឈ្មោះរូបភាពខុសពីនេះ សូមប្ដូរអក្សរក្នុងរង្វង់ក្រចកខាងក្រោមឱ្យត្រូវនឹងឈ្មោះរូបភាពពិតប្រាកដ)
+profile_image_name = "Screenshot_20260117_171139_Facebook.jpg"
+
+if os.path.exists(profile_image_name):
+    st.image(profile_image_name, caption="Admin App Profile", use_container_width=True)
 
 st.title("🎬 AI Movie Subtitle & Dubbing Pro")
 st.write("បកប្រែវីដេអូយូរម៉ោងជា Subtitle ខ្មែរ និងបង្កើតសំឡេង Dubbing ពេញលេញដោយរលូន!")
@@ -42,7 +45,7 @@ async def generate_long_audio(text, voice, output_path):
         await communicate.save(chunk_path)
         temp_files.append(chunk_path)
     
-    # ပေါင်းបញ្ចូល File សំឡេងទាំងអស់ចូលគ្នាជា File  একট
+    # ផ្គុំបញ្ចូល File សំឡេងទាំងអស់ចូលគ្នាជា File តែមួយពេញលេញ
     with open(output_path, 'wb') as outfile:
         for f_path in temp_files:
             with open(f_path, 'rb') as infile:
@@ -95,3 +98,4 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
     else:
         st.warning("សូម Upload វីដេអូមុននឹងចាប់ផ្តើម!")
+                
