@@ -22,7 +22,7 @@ with st.sidebar:
         selected_voice = "km-KH-PisethNeural"
 
 st.title("🎬 AI Movie Subtitle & Dubbing Pro")
-st.write("បកប្រែវីដេអូយូរម៉ោងជា Subtitle ខ្មែរ និងបង្កើតសំឡេង Dubbing ពេញលេញដោយរលូន!")
+st.write("បកប្រែវីដេអូជា Subtitle ខ្មែរ និងបង្កើតសំឡេង Dubbing ត្រូវរយៈពេលវីដេអូដើមដោយរលូន!")
 
 uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP4, MOV, AVI):", type=["mp4", "mov", "avi"])
 
@@ -50,7 +50,7 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
         try:
             client = genai.Client(api_key=api_key)
             
-            with st.spinner("កំពុងដំណើរការវីដេអូវែង និងបកប្រែសាច់រឿងលម្អិត... (សូមរង់ចាំបន្តិច)"):
+            with st.spinner("កំពុងដំណើរការវីដេអូ និងបកប្រែសាច់រឿងឱ្យត្រូវទំហំពេលវេលា... (សូមរង់ចាំបន្តិច)"):
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                 tfile.write(uploaded_file.read())
                 video_path = tfile.name
@@ -58,12 +58,12 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
                 video_file = client.files.upload(file=video_path)
                 
                 prompt = (
-                    "Listen closely to the entire video from start to finish and write out the complete, detailed dialogue "
-                    "and conversation story in natural Khmer. "
+                    "Watch and listen closely to the entire video from start to finish. "
+                    "Write a concise, natural, and well-paced Khmer dialogue script that matches the video's actual duration. "
                     "CRITICAL INSTRUCTIONS: "
-                    "1. Present it as a smooth, continuous dialogue script covering all events from beginning to the end. "
+                    "1. Present it as a smooth, continuous dialogue narrative without dragging or adding unnecessary fluff so the audio pacing fits the video length. "
                     "2. Do NOT include any timestamps, time markers, brackets, or code symbols. "
-                    "3. Ensure the full story is thoroughly translated without skipping the ending."
+                    "3. Ensure the full story from beginning to end is accurately covered."
                 )
                 
                 response = client.models.generate_content(
@@ -73,20 +73,20 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
                 
                 translated_text = response.text
 
-            st.success("បកប្រែសាច់រឿងពេញលេញបានជោគជ័យ!")
+            st.success("បកប្រែសាច់រឿងបានជោគជ័យ!")
             
-            st.subheader("📝 អត្ថបទសាច់រឿងពេញលេញ (សម្រាប់ Copy ដាក់ CapCut):")
+            st.subheader("📝 អត្ថបទសាច់រឿង (សម្រាប់ Copy ដាក់ CapCut):")
             st.info(translated_text)
 
-            with st.spinner("កំពុងបង្កើតសំឡេង Dubbing ពេញលេញគ្រប់រយៈពេលវីដេអូ..."):
+            with st.spinner("កំពុងបង្កើតសំឡេង Dubbing ខ្មែរ..."):
                 audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
                 asyncio.run(generate_long_audio(translated_text, selected_voice, audio_path))
 
-            st.subheader("🔊 សំឡេង Dubbing ខ្មែរពេញលេញ (AI Voice):")
+            st.subheader("🔊 សំឡេង Dubbing ខ្មែរ (AI Voice):")
             st.audio(audio_path)
 
         except Exception as e:
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
     else:
         st.warning("សូម Upload វីដេអូមុននឹងចាប់ផ្តើម!")
-        
+            
