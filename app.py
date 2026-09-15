@@ -103,7 +103,7 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
                 )
                 
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-3.6-flash',
                     contents=[video_file, prompt]
                 )
                 
@@ -132,4 +132,3 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
 
         except Exception as e:
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
-            
