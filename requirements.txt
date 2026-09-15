@@ -2,3 +2,7 @@ streamlit
 google-genai
 edge-tts
 yt-dlp
+opencv-python-headless
+numpy
+Pillow
+requests
