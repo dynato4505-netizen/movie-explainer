@@ -5,6 +5,7 @@ import edge_tts
 import tempfile
 import os
 import yt_dlp
+import re
 
 st.set_page_config(page_title="AI Movie Subtitle & Dubbing Pro", page_icon="🎬")
 
@@ -29,7 +30,7 @@ st.write("បកប្រែវីដេអូពេញលេញជា Subtitle 
 input_method = st.radio("ជ្រើសរើសប្រភពវីដេអូ៖", ("📁 Upload វីដេអូពីកុំព្យូទ័រ", "🔗 បិទភ្ជាប់លីង (RedNote, TikTok, YouTube, FB)"))
 
 video_path = None
-thumbnail_url = None  # បន្ថែមសម្រាប់เก็บ Link រូប Thumbnail
+thumbnail_url = None
 
 if input_method == "📁 Upload វីដេអូពីកុំព្យូទ័រ":
     uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP4, MOV, AVI):", type=["mp4", "mov", "avi"])
@@ -39,38 +40,52 @@ if input_method == "📁 Upload វីដេអូពីកុំព្យូទ
         video_path = tfile.name
 
 else:
-    video_url = st.text_input("សូមបិទភ្ជាប់ (Paste) លីងវីដេអូ (RedNote, TikTok, YouTube, FB):")
-    if video_url and st.button("⬇️ ទាញយកវីដេអូចូល Tool"):
-        with st.spinner("កំពុងទាញយកវីដេអូ និងទ้อมูล Thumbnail សូមរង់ចាំបន្តិច..."):
+    raw_video_url = st.text_input("សូមបិទភ្ជាប់ (Paste) លីងវីដេអូ (RedNote, TikTok, YouTube, FB):")
+    
+    if raw_video_url and st.button("⬇️ ទាញយកវីដេអូចូល Tool"):
+        with st.spinner("កំពុងពិនិត្យ និងទាញយកវីដេអូ សូមរង់ចាំបន្តិច..."):
             try:
+                # មុខងារសម្អាតលីង RedNote ស្វ័យប្រវត្តិ (កាត់យកលីងសុទ្ធពីក្នុងអត្ថបទវែង)
+                url_match = re.search(r'https?://[^\s]+', raw_video_url)
+                clean_url = url_match.group(0) if url_match else raw_video_url
+                
+                # បើមានជាប់លីង Login ញែកយក Item ID ឬកាត់កន្ទុយออกឱ្យស្អាត
+                if "xiaohongshu.com" in clean_url and "login" in clean_url:
+                    # ព្យាយាមទាញយក redirectPath បើមាន
+                    from urllib.parse import parse_qs, urlparse
+                    parsed_url = urlparse(clean_url)
+                    query_params = parse_qs(parsed_url.query)
+                    if 'redirectPath' in query_params:
+                        clean_url = query_params['redirectPath'][0]
+
                 downloaded_file_path = "downloaded_video.mp4"
                 if os.path.exists(downloaded_file_path):
                     os.remove(downloaded_file_path)
                 
-                # កូដ yt_dlp ដើម្បីទាញយករបស់វីដេអូ និង Thumbnail
                 ydl_opts = {
                     'outtmpl': downloaded_file_path,
                     'format': 'best',
+                    'socket_timeout': 30,
                 }
+                
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info_dict = ydl.extract_info(video_url, download=True)
-                    thumbnail_url = info_dict.get('thumbnail', None) # ទាញយក Thumbnail URL មកជាមួយ
+                    info_dict = ydl.extract_info(clean_url, download=True)
+                    thumbnail_url = info_dict.get('thumbnail', None)
                 
                 if os.path.exists(downloaded_file_path):
                     video_path = downloaded_file_path
-                    st.success("ទាញយកវីដេអូជោគជ័យ!")
-                    st.video(video_path)
+                    st.success("ទាញយកវីដេអូ និង Thumbnail បានជោគជ័យ!")
             except Exception as e:
-                st.error(f"មានបញ្ហាក្នុងការទាញយក៖ {e}")
+                st.error(f"មានបញ្ហាក្នុងการទាញយក៖ {e}")
 
-# ប្រសិនបើមាន Thumbnail URL ពីការទាញយកលីង យកមកបង្ហាញ និងអនុញ្ញាតឱ្យ Download
+# បង្ហាញ Thumbnail ប្រសិនបើមានទាញបាន
 if thumbnail_url:
     st.subheader("🖼️ រូប Thumbnail របស់វីដេអូ៖")
     st.image(thumbnail_url, use_container_width=True)
     st.markdown(f"[🔗 ចុចទីនេះដើម្បីបើកមើលរូបទំហំធំ]({thumbnail_url})")
 
-# ប្រសិនបើមានវីដេអូរួចរាល់ (មិនថាបានពី Upload ឬ ពី Link)
-if video_path and os.path.exists(video_path) and not thumbnail_url:
+# បង្ហាញ Video ប្រសិនបើមាន
+if video_path and os.path.exists(video_path):
     st.video(video_path)
 
 async def generate_long_audio(text, voice, output_path):
@@ -130,7 +145,6 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
             st.subheader("🔊 សំឡេង Dubbing ខ្មែរពេញលេញ (AI Voice MP3):")
             st.audio(audio_path)
             
-            # ប៊ូតុងទាញយក File MP3 ទុកក្នុងម៉ាស៊ីន
             with open(audio_path, "rb") as f:
                 st.download_button(
                     label="📥 ទាញយកសំឡេង MP3 នេះ",
@@ -141,4 +155,4 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
 
         except Exception as e:
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
-                               
+    
