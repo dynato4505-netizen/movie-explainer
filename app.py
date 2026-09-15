@@ -29,6 +29,7 @@ st.write("បកប្រែវីដេអូពេញលេញជា Subtitle 
 input_method = st.radio("ជ្រើសរើសប្រភពវីដេអូ៖", ("📁 Upload វីដេអូពីកុំព្យូទ័រ", "🔗 បិទភ្ជាប់លីង (RedNote, TikTok, YouTube, FB)"))
 
 video_path = None
+thumbnail_url = None  # បន្ថែមសម្រាប់เก็บ Link រូប Thumbnail
 
 if input_method == "📁 Upload វីដេអូពីកុំព្យូទ័រ":
     uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP4, MOV, AVI):", type=["mp4", "mov", "avi"])
@@ -40,18 +41,20 @@ if input_method == "📁 Upload វីដេអូពីកុំព្យូទ
 else:
     video_url = st.text_input("សូមបិទភ្ជាប់ (Paste) លីងវីដេអូ (RedNote, TikTok, YouTube, FB):")
     if video_url and st.button("⬇️ ទាញយកវីដេអូចូល Tool"):
-        with st.spinner("កំពុងទាញយកវីដេអូ សូមរង់ចាំបន្តិច..."):
+        with st.spinner("កំពុងទាញយកវីដេអូ និងទ้อมูล Thumbnail សូមរង់ចាំបន្តិច..."):
             try:
                 downloaded_file_path = "downloaded_video.mp4"
                 if os.path.exists(downloaded_file_path):
                     os.remove(downloaded_file_path)
                 
+                # កូដ yt_dlp ដើម្បីទាញយករបស់វីដេអូ និង Thumbnail
                 ydl_opts = {
                     'outtmpl': downloaded_file_path,
                     'format': 'best',
                 }
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([video_url])
+                    info_dict = ydl.extract_info(video_url, download=True)
+                    thumbnail_url = info_dict.get('thumbnail', None) # ទាញយក Thumbnail URL មកជាមួយ
                 
                 if os.path.exists(downloaded_file_path):
                     video_path = downloaded_file_path
@@ -60,8 +63,14 @@ else:
             except Exception as e:
                 st.error(f"មានបញ្ហាក្នុងការទាញយក៖ {e}")
 
+# ប្រសិនបើមាន Thumbnail URL ពីការទាញយកលីង យកមកបង្ហាញ និងអនុញ្ញាតឱ្យ Download
+if thumbnail_url:
+    st.subheader("🖼️ រូប Thumbnail របស់វីដេអូ៖")
+    st.image(thumbnail_url, use_container_width=True)
+    st.markdown(f"[🔗 ចុចទីនេះដើម្បីបើកមើលរូបទំហំធំ]({thumbnail_url})")
+
 # ប្រសិនបើមានវីដេអូរួចរាល់ (មិនថាបានពី Upload ឬ ពី Link)
-if video_path and os.path.exists(video_path):
+if video_path and os.path.exists(video_path) and not thumbnail_url:
     st.video(video_path)
 
 async def generate_long_audio(text, voice, output_path):
@@ -132,3 +141,4 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
 
         except Exception as e:
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
+                               
