@@ -6,7 +6,7 @@ import tempfile
 import os
 import yt_dlp
 import re
-from urllib.parse import urlparse, parse_qs, unquote
+import cv2  # បន្ថែមសម្រាប់កាត់យករូបភាពពីវីដេអូ
 
 st.set_page_config(page_title="AI Movie Subtitle & Dubbing Pro", page_icon="🎬")
 
@@ -27,11 +27,11 @@ with st.sidebar:
 st.title("🎬 AI Movie Subtitle & Dubbing Pro")
 st.write("បកប្រែវីដេអូពេញលេញជា Subtitle ខ្មែរ និងបង្កើតសំឡេង Dubbing ត្រូវសាច់រឿងពីដើមដល់ចប់ដោយរលូន!")
 
-# --- ជ្រើសរើសវិធីសាស្ត្របញ្ចូលវីដេអូ (Upload ផ្ទាល់ ឬ ដាក់ Link ដោនឡូត) ---
-input_method = st.radio("ជ្រើសរើសប្រភពវីដេអូ៖", ("📁 Upload វីដេអូពីកុំព្យូទ័រ", "🔗 បិទភ្ជាប់លីង (RedNote, TikTok, YouTube, FB)"))
+# --- ជ្រើសរើសវិធីសាស្ត្របញ្ចូលវីដេអូ ---
+input_method = st.radio("ជ្រើសរើសប្រភពវីដេអូ៖", ("📁 Upload វីដេអូពីកុំព្យូទ័រ", "🔗 បិទភ្ជាប់លីង (TikTok, YouTube, FB)"))
 
 video_path = None
-thumbnail_url = None
+thumbnail_path = None  # ទុកเก็บ path រូប thumbnail ដែលកាត់បានពីវីដេអូ
 
 if input_method == "📁 Upload វីដេអូពីកុំព្យូទ័រ":
     uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP4, MOV, AVI):", type=["mp4", "mov", "avi"])
@@ -41,27 +41,15 @@ if input_method == "📁 Upload វីដេអូពីកុំព្យូទ
         video_path = tfile.name
 
 else:
-    raw_video_url = st.text_input("សូមបិទភ្ជាប់ (Paste) លីងវីដេអូ (RedNote, TikTok, YouTube, FB):")
+    st.info("💡 **ចំណាំ៖** សម្រាប់ RedNote សូម Download វីដេអូទុកក្នុងទូរសព្ទ/កុំព្យូទ័រ រួចជ្រើសរើស Upload ផ្ទាល់ គឺធានាថាលឿន និងមិន Error ទេ។")
+    raw_video_url = st.text_input("សូមបិទភ្ជាប់ (Paste) លីងវីដេអូ (YouTube, TikTok, FB):")
     
     if raw_video_url and st.button("⬇️ ទាញយកវីដេអូចូល Tool"):
-        with st.spinner("កំពុងសម្អាតលីង និងទាញយកវីដេអូ សូមរង់ចាំបន្តិច..."):
+        with st.spinner("កំពុងទាញយកវីដេអូ សូមរង់ចាំបន្តិច..."):
             try:
-                # ស្វែងរក URL ពីក្នុងអត្ថបទ
                 url_match = re.search(r'https?://[^\s]+', raw_video_url)
                 clean_url = url_match.group(0) if url_match else raw_video_url
-                
-                # បកស្រាយកូដ URL (Decoding) និងទាញយកលីងពិតពី RedNote Login Redirect
-                decoded_url = unquote(clean_url)
-                if "xiaohongshu.com" in decoded_url and "redirectPath=" in decoded_url:
-                    parsed_url = urlparse(decoded_url)
-                    query_params = parse_qs(parsed_url.query)
-                    if 'redirectPath' in query_params:
-                        clean_url = query_params['redirectPath'][0]
-                elif "xiaohongshu.com" in decoded_url and "login?" in decoded_url:
-                    # ករណីកន្ទុយ URL ជាប់ κod ផ្សេងទៀត
-                    match_path = re.search(r'redirectPath=([^&]+)', decoded_url)
-                    if match_path:
-                        clean_url = unquote(match_path.group(1))
+                clean_url = clean_url.strip(')"]}')
 
                 downloaded_file_path = "downloaded_video.mp4"
                 if os.path.exists(downloaded_file_path):
@@ -74,24 +62,50 @@ else:
                 }
                 
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info_dict = ydl.extract_info(clean_url, download=True)
-                    thumbnail_url = info_dict.get('thumbnail', None)
+                    ydl.download([clean_url])
                 
                 if os.path.exists(downloaded_file_path):
                     video_path = downloaded_file_path
-                    st.success("ទាញយកវីដេអូ និង Thumbnail បានជោគជ័យ!")
+                    st.success("ទាញយកវីដេអូបានជោគជ័យ!")
             except Exception as e:
-                st.error(f"មានបញ្ហាក្នុងการទាញយក៖ {e}")
+                st.error(f"មិនអាចទាញយកលីងនេះបានទេ៖ {e}")
 
-# បង្ហាញ Thumbnail ប្រសិនបើមាន
-if thumbnail_url:
-    st.subheader("🖼️ រូប Thumbnail របស់វីដេអូ៖")
-    st.image(thumbnail_url, use_container_width=True)
-    st.markdown(f"[🔗 ចុចទីនេះដើម្បីបើកមើលរូបទំហំធំ]({thumbnail_url})")
-
-# បង្ហាញ Video ប្រសិនបើមាន
+# ប្រសិនបើមានវីដេអូរួចរាល់ (មិនថាបានពី Upload ឬ ពី Link) ដំណើរការកាត់យក Thumbnail ស្វ័យប្រវត្តិ
 if video_path and os.path.exists(video_path):
     st.video(video_path)
+    
+    # មុខងារកាត់យករូបភាពពីវីដេអូមកทำ Thumbnail (យកវិនាទីទី ២ ឬ កណ្តាលវីដេអូ)
+    try:
+        cap = cv2.VideoCapture(video_path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        
+        if fps > 0 and total_frames > 0:
+            # យកស៊ុមរូបភាពនៅវិនាទីទី 2 (ឬកណ្តាលវីដេអូប្រសិនបើវីដេអូខ្លី)
+            target_frame = int(fps * 2) if total_frames > int(fps * 2) else total_frames // 2
+            cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+            success, frame = cap.read()
+            
+            if success:
+                thumb_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+                cv2.imwrite(thumb_temp.name, frame)
+                thumbnail_path = thumb_temp.name
+        cap.release()
+    except Exception as ex:
+        print(f"Error generating thumbnail: {ex}")
+
+    # បង្ហាញរូប Thumbnail និងប៊ូតុង Download
+    if thumbnail_path and os.path.exists(thumbnail_path):
+        st.subheader("🖼️ រូប Thumbnail ដែល Tool កាត់បានពីវីដេអូ៖")
+        st.image(thumbnail_path, use_container_width=True)
+        
+        with open(thumbnail_path, "rb") as img_file:
+            st.download_button(
+                label="📥 ទាញយក Thumbnail នេះ",
+                data=img_file,
+                file_name="video_thumbnail.jpg",
+                mime="image/jpeg"
+            )
 
 async def generate_long_audio(text, voice, output_path):
     max_chars = 3000
@@ -160,4 +174,4 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
 
         except Exception as e:
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
-            
+                    
