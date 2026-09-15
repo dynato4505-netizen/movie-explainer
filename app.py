@@ -6,7 +6,8 @@ import tempfile
 import os
 import yt_dlp
 import re
-import cv2  # បន្ថែមសម្រាប់កាត់យករូបភាពពីវីដេអូ
+import cv2
+from pydub import AudioSegment  # បន្ថែមសម្រាប់កែច្នៃល្បឿនសំឡេង
 
 st.set_page_config(page_title="AI Movie Subtitle & Dubbing Pro", page_icon="🎬")
 
@@ -31,7 +32,7 @@ st.write("បកប្រែវីដេអូពេញលេញជា Subtitle 
 input_method = st.radio("ជ្រើសរើសប្រភពវីដេអូ៖", ("📁 Upload វីដេអូពីកុំព្យូទ័រ", "🔗 បិទភ្ជាប់លីង (TikTok, YouTube, FB)"))
 
 video_path = None
-thumbnail_path = None  # ទុកเก็บ path រូប thumbnail ដែលកាត់បានពីវីដេអូ
+thumbnail_path = None
 
 if input_method == "📁 Upload វីដេអូពីកុំព្យូទ័រ":
     uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP4, MOV, AVI):", type=["mp4", "mov", "avi"])
@@ -70,18 +71,16 @@ else:
             except Exception as e:
                 st.error(f"មិនអាចទាញយកលីងនេះបានទេ៖ {e}")
 
-# ប្រសិនបើមានវីដេអូរួចរាល់ (មិនថាបានពី Upload ឬ ពី Link) ដំណើរការកាត់យក Thumbnail ស្វ័យប្រវត្តិ
+# ប្រសិនបើមានវីដេអូរួចរាល់ ដំណើរការកាត់យក Thumbnail
 if video_path and os.path.exists(video_path):
     st.video(video_path)
     
-    # មុខងារកាត់យករូបភាពពីវីដេអូមកทำ Thumbnail (យកវិនាទីទី ២ ឬ កណ្តាលវីដេអូ)
     try:
         cap = cv2.VideoCapture(video_path)
         fps = cap.get(cv2.CAP_PROP_FPS)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         
         if fps > 0 and total_frames > 0:
-            # យកស៊ុមរូបភាពនៅវិនាទីទី 2 (ឬកណ្តាលវីដេអូប្រសិនបើវីដេអូខ្លី)
             target_frame = int(fps * 2) if total_frames > int(fps * 2) else total_frames // 2
             cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
             success, frame = cap.read()
@@ -94,7 +93,6 @@ if video_path and os.path.exists(video_path):
     except Exception as ex:
         print(f"Error generating thumbnail: {ex}")
 
-    # បង្ហាញរូប Thumbnail និងប៊ូតុង Download
     if thumbnail_path and os.path.exists(thumbnail_path):
         st.subheader("🖼️ រូប Thumbnail ដែល Tool កាត់បានពីវីដេអូ៖")
         st.image(thumbnail_path, use_container_width=True)
@@ -124,7 +122,47 @@ async def generate_long_audio(text, voice, output_path):
                 outfile.write(infile.read())
             os.remove(f_path)
 
-if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប្រែ និងបង្កើតសំឡេង MP3"):
+# មុខងារជំនួយ៖ គណនារយៈពេលវីដេអូ និងកែសម្រួលល្បឿនសំឡេងឱ្យដើរស្មើគ្នា
+def match_audio_to_video(video_file_path, audio_file_path):
+    try:
+        # 1. យករយៈពេលវីដេអូជាវិនាទី (ដោយប្រើ OpenCV)
+        cap = cv2.VideoCapture(video_file_path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        cap.release()
+        
+        if fps <= 0 or frame_count <= 0:
+            return audio_file_path  # បើទាញយកមិនបាន រក្សាទុកសំឡេងដើម
+            
+        video_duration_sec = frame_count / fps
+        
+        # 2. យករយៈពេលសំឡេងដើម (ដោយប្រើ Pydub)
+        sound = AudioSegment.from_file(audio_file_path, format="mp3")
+        audio_duration_sec = len(sound) / 1000.0  # បំប្លែងពី milliseconds ទៅ seconds
+        
+        # 3. គណនារកកម្រិតល្បឿនដែលត្រូវប្តូរ (Speed Ratio)
+        speed_ratio = audio_duration_sec / video_duration_sec
+        
+        # កំណត់ទំហំកំណត់ (guardrails) ដើម្បីកុំឱ្យសំឡេងលឿន ឬយឺតហួសហេតុពេក (ត្រឹម 0.7x ដល់ 1.8x)
+        if speed_ratio < 0.7:
+            speed_ratio = 0.7
+        elif speed_ratio > 1.8:
+            speed_ratio = 1.8
+            
+        # ប្រសិនបើល្បឿនខុសគ្នាឆ្ងាយ ទើបធ្វើការ Sync
+        if abs(audio_duration_sec - video_duration_sec) > 3.0:
+            # ប្តូរល្បឿនសំឡេងដោយរក្សាកម្រិតសំឡេងដើម (Pitch)
+            altered_sound = sound.speedup(playback_speed=speed_ratio)
+            synced_output_path = tempfile.NamedTemporaryFile(delete=False, suffix='_synced.mp3').name
+            altered_sound.export(synced_output_path, format="mp3")
+            return synced_output_path
+            
+    except Exception as e:
+        print(f"Sync error: {e}")
+        
+    return audio_file_path
+
+if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប្រែ និងបង្កើតសំឡេង MP3 (Auto-Sync)"):
     if not api_key:
         st.error("សូមបញ្ចូល Google Gemini API Key នៅកន្លែង Settings ខាងឆ្វេងជាមុនសិន!")
     elif not video_path:
@@ -157,21 +195,24 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
             st.subheader("📝 អត្ថបទសាច់រឿងពេញលេញ (សម្រាប់ Copy ដាក់ CapCut):")
             st.info(translated_text)
 
-            with st.spinner("កំពុងបង្កើតសំឡេង Dubbing ខ្មែរពេញលេញ (MP3)..."):
-                audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
-                asyncio.run(generate_long_audio(translated_text, selected_voice, audio_path))
+            with st.spinner("កំពុងបង្កើតសំឡេង Dubbing និងធ្វើការ Sync ឱ្យស្មើនឹងរយៈពេលវីដេអូ..."):
+                raw_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
+                asyncio.run(generate_long_audio(translated_text, selected_voice, raw_audio_path))
+                
+                # ហៅមុខងារធ្វើឱ្យសំឡេងដើរស្មើជាមួយវីដេអូ
+                audio_path = match_audio_to_video(video_path, raw_audio_path)
 
-            st.subheader("🔊 សំឡេង Dubbing ខ្មែរពេញលេញ (AI Voice MP3):")
+            st.subheader("🔊 សំឡេង Dubbing ខ្មែរដែលបាន Sync ត្រូវជាមួយវីដេអូ (MP3):")
             st.audio(audio_path)
             
             with open(audio_path, "rb") as f:
                 st.download_button(
                     label="📥 ទាញយកសំឡេង MP3 នេះ",
                     data=f,
-                    file_name="khmer_dubbing_audio.mp3",
+                    file_name="khmer_dubbing_synced.mp3",
                     mime="audio/mp3"
                 )
 
         except Exception as e:
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
-                    
+        
