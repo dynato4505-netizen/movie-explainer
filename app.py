@@ -6,6 +6,7 @@ import tempfile
 import os
 import yt_dlp
 import re
+from urllib.parse import urlparse, parse_qs, unquote
 
 st.set_page_config(page_title="AI Movie Subtitle & Dubbing Pro", page_icon="🎬")
 
@@ -43,20 +44,24 @@ else:
     raw_video_url = st.text_input("សូមបិទភ្ជាប់ (Paste) លីងវីដេអូ (RedNote, TikTok, YouTube, FB):")
     
     if raw_video_url and st.button("⬇️ ទាញយកវីដេអូចូល Tool"):
-        with st.spinner("កំពុងពិនិត្យ និងទាញយកវីដេអូ សូមរង់ចាំបន្តិច..."):
+        with st.spinner("កំពុងសម្អាតលីង និងទាញយកវីដេអូ សូមរង់ចាំបន្តិច..."):
             try:
-                # មុខងារសម្អាតលីង RedNote ស្វ័យប្រវត្តិ (កាត់យកលីងសុទ្ធពីក្នុងអត្ថបទវែង)
+                # ស្វែងរក URL ពីក្នុងអត្ថបទ
                 url_match = re.search(r'https?://[^\s]+', raw_video_url)
                 clean_url = url_match.group(0) if url_match else raw_video_url
                 
-                # បើមានជាប់លីង Login ញែកយក Item ID ឬកាត់កន្ទុយออกឱ្យស្អាត
-                if "xiaohongshu.com" in clean_url and "login" in clean_url:
-                    # ព្យាយាមទាញយក redirectPath បើមាន
-                    from urllib.parse import parse_qs, urlparse
-                    parsed_url = urlparse(clean_url)
+                # បកស្រាយកូដ URL (Decoding) និងទាញយកលីងពិតពី RedNote Login Redirect
+                decoded_url = unquote(clean_url)
+                if "xiaohongshu.com" in decoded_url and "redirectPath=" in decoded_url:
+                    parsed_url = urlparse(decoded_url)
                     query_params = parse_qs(parsed_url.query)
                     if 'redirectPath' in query_params:
                         clean_url = query_params['redirectPath'][0]
+                elif "xiaohongshu.com" in decoded_url and "login?" in decoded_url:
+                    # ករណីកន្ទុយ URL ជាប់ κod ផ្សេងទៀត
+                    match_path = re.search(r'redirectPath=([^&]+)', decoded_url)
+                    if match_path:
+                        clean_url = unquote(match_path.group(1))
 
                 downloaded_file_path = "downloaded_video.mp4"
                 if os.path.exists(downloaded_file_path):
@@ -78,7 +83,7 @@ else:
             except Exception as e:
                 st.error(f"មានបញ្ហាក្នុងการទាញយក៖ {e}")
 
-# បង្ហាញ Thumbnail ប្រសិនបើមានទាញបាន
+# បង្ហាញ Thumbnail ប្រសិនបើមាន
 if thumbnail_url:
     st.subheader("🖼️ រូប Thumbnail របស់វីដេអូ៖")
     st.image(thumbnail_url, use_container_width=True)
@@ -155,4 +160,4 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
 
         except Exception as e:
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
-    
+            
