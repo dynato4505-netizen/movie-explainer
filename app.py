@@ -1,5 +1,6 @@
 import streamlit as st
-from google import genai
+import requests
+import json
 import asyncio
 import edge_tts
 import tempfile
@@ -65,9 +66,9 @@ else:
                 
                 if os.path.exists(downloaded_file_path):
                     video_path = downloaded_file_path
-                    st.success("ទាញយកវីដេអូได้ជោគជ័យ!")
+                    st.success("ទាញយកវីដេអូបានជោគជ័យ!")
             except Exception as e:
-                st.error(f"មិនអាចទាញយកលីងនេះបានទេ៖ {e}")
+                st.error(f"មិនអាចទាញយកលីងនេះได้ទេ៖ {e}")
 
 if video_path and os.path.exists(video_path):
     st.video(video_path)
@@ -126,11 +127,51 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
         st.warning("សូម Upload វីដេអូ ឬទាញយកវីដេអូតាមលីងជាមុនសិន!")
     else:
         try:
-            client = genai.Client(api_key=api_key)
-            
-            with st.spinner("កំពុងបកប្រែសាច់រឿងពេញលេញគ្រប់វិនាទីពីវីដេអូ... (សូមរង់ចាំបន្តិច)"):
-                video_file = client.files.upload(file=video_path)
+            with st.spinner("កំពុង Upload វីដេអូទៅកាន់ Gemini Server..."):
+                headers = {}
+                if api_key.startswith("AQ."):
+                    headers = {"Authorization": f"Bearer {api_key}"}
+                    upload_url = "https://generativelanguage.googleapis.com/upload/v1beta/files"
+                else:
+                    upload_url = f"https://generativelanguage.googleapis.com/upload/v1beta/files?key={api_key}"
                 
+                with open(video_path, "rb") as f:
+                    file_bytes = f.read()
+                
+                init_headers = headers.copy()
+                init_headers.update({
+                    "X-Goog-Upload-Protocol": "resumable",
+                    "X-Goog-Upload-Command": "start",
+                    "X-Goog-Upload-Header-Content-Length": str(len(file_bytes)),
+                    "X-Goog-Upload-Header-Content-Type": "video/mp4",
+                    "Content-Type": "application/json"
+                })
+                
+                init_res = requests.post(upload_url, headers=init_headers, data=json.dumps({"file": {"display_name": "movie_video.mp4"}}))
+                
+                if init_res.status_code != 200:
+                    st.error(f"មិនអាចផ្ដើម Upload វីដេអូបានទេ: {init_res.text}")
+                    st.stop()
+                
+                upload_session_url = init_res.headers.get("X-Goog-Upload-URL")
+                
+                upload_headers = headers.copy()
+                upload_headers.update({
+                    "X-Goog-Upload-Command": "upload, finalize",
+                    "X-Goog-Upload-Offset": "0",
+                    "Content-Length": str(len(file_bytes))
+                })
+                
+                upload_res = requests.post(upload_session_url, headers=upload_headers, data=file_bytes)
+                
+                if upload_res.status_code != 200:
+                    st.error(f"Upload វីដេអូមិនបានសម្រេច: {upload_res.text}")
+                    st.stop()
+                    
+                file_info = upload_res.json()
+                file_name_uri = file_info.get("file", {}).get("name")
+
+            with st.spinner("កំពុងបកប្រែសាច់រឿងពេញលេញគ្រប់វិនាទីពីវីដេអូ... (សូមរង់ចាំបន្តិច)"):
                 prompt = (
                     "Listen and translate the full video from start to finish into natural Khmer. "
                     "Do NOT summarize, do NOT recap, and do NOT cut short. Translate every conversation, event, and detail thoroughly "
@@ -140,14 +181,33 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
                     "2. Do NOT include any timestamps, time markers, brackets, or code symbols."
                 )
                 
-                response = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=[video_file, prompt]
-                )
+                gen_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+                if not api_key.startswith("AQ."):
+                    gen_url += f"?key={api_key}"
                 
-                translated_text = response.text
+                payload = {
+                    "contents": [{
+                        "parts": [
+                            {"file_data": {"mime_type": "video/mp4", "file_uri": f"https://generativelanguage.googleapis.com/v1beta/{file_name_uri}"}},
+                            {"text": prompt}
+                        ]
+                    }]
+                }
+                
+                gen_headers = {"Content-Type": "application/json"}
+                if api_key.startswith("AQ."):
+                    gen_headers["Authorization"] = f"Bearer {api_key}"
+                
+                response = requests.post(gen_url, headers=gen_headers, data=json.dumps(payload))
+                
+                if response.status_code != 200:
+                    st.error(f"មានបញ្ហាក្នុងការបកប្រែពី Gemini: {response.text}")
+                    st.stop()
+                
+                res_json = response.json()
+                translated_text = res_json["candidates"][0]["content"]["parts"][0]["text"]
 
-            st.success("បកប្រែសាច់រឿងពេញលេញបានជោគជ័យ!")
+            st.success("បកប្រែសាច់រឿងពេញលេញได้ជោគជ័យ!")
             
             st.subheader("📝 អត្ថបទសាច់រឿងពេញលេញ (សម្រាប់ Copy ដាក់ CapCut):")
             st.info(translated_text)
@@ -169,4 +229,4 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
 
         except Exception as e:
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
-	
+		
