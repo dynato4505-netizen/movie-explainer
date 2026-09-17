@@ -2,8 +2,7 @@
 # 1. IMPORT LIBRARIES (នាំចូលបណ្ណាល័យចាំបាច់)
 # ==========================================
 import streamlit as st
-import requests
-import json
+from google import genai
 import asyncio
 import edge_tts
 import tempfile
@@ -11,8 +10,6 @@ import os
 import yt_dlp
 import re
 import cv2
-import time
-import google.generativeai as genai
 
 # ==========================================
 # 2. STREAMLIT APP CONFIGURATION & SIDEBAR
@@ -28,7 +25,6 @@ with st.sidebar:
         ("Sreymom (ស្រី - ធម្មជាតិ)", "Piseth (ប្រុស - ធម្មជាតិ)")
     )
     
-    # កំណត់កូដសំឡេងតាមជម្រើស
     if "Sreymom" in voice_option:
         selected_voice = "km-KH-SreymomNeural"
     else:
@@ -45,7 +41,6 @@ input_method = st.radio("ជ្រើសរើសប្រភពវីដេអ�
 video_path = None
 thumbnail_path = None
 
-# ករណី Upload វីដេអូផ្ទាល់ពីកុំព្យូទ័រ
 if input_method == "📁 Upload វីដេអូពីកុំព្យូទ័រ":
     uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP4, MOV, AVI):", type=["mp4", "mov", "avi"])
     if uploaded_file is not None:
@@ -53,7 +48,6 @@ if input_method == "📁 Upload វីដេអូពីកុំព្យូទ
         tfile.write(uploaded_file.read())
         video_path = tfile.name
 
-# ករណីប្រើប្រាស់លីងទាញយកវីដេអូ
 else:
     st.info("💡 ចំណាំ៖ សម្រាប់ RedNote សូម Download វីដេអូទុកក្នុងទូរសព្ទ/កុំព្យូទ័រ រួចជ្រើសរើស Upload ផ្ទាល់ គឺធានាថាលឿន និងមិន Error ទេ។")
     raw_video_url = st.text_input("សូមបិទភ្ជាប់ (Paste) លីងវីដេអូ (YouTube, TikTok, FB):")
@@ -121,7 +115,7 @@ if video_path and os.path.exists(video_path):
             )
 
 # ==========================================
-# 5. ASYNC AUDIO GENERATION FUNCTION (EDGE-TTS)
+# 5. ASYNC AUDIO GENERATION FUNCTION
 # ==========================================
 async def generate_long_audio(text, voice, output_path):
     max_chars = 3000
@@ -150,15 +144,47 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
         st.warning("សូម Upload វីដេអូ ឬទាញយកវីដេអូតាមលីងជាមុនសិន!")
     else:
         try:
-            genai.configure(api_key=api_key)
+            client = genai.Client(api_key=api_key)
+            
+            with st.spinner("កំពុងបកប្រែសាច់រឿងពេញលេញគ្រប់វិនាទីពីវីដេអូ... (សូមរង់ចាំបន្តិច)"):
+                video_file = client.files.upload(file=video_path)
+                
+                prompt = (
+                    "Listen and translate the full video from start to finish into natural Khmer. "
+                    "Do NOT summarize, do NOT recap, and do NOT cut short. Translate every conversation, event, and detail thoroughly "
+                    "so that the narrative covers the entire runtime sequence naturally. "
+                    "CRITICAL INSTRUCTIONS: "
+                    "1. Present it as a smooth, continuous script covering all events from beginning to the end. "
+                    "2. Do NOT include any timestamps, time markers, brackets, or code symbols."
+                )
+                
+                response = client.models.generate_content(
+                    model='gemini-3.6-flash',
+                    contents=[video_file, prompt]
+                )
+                
+                translated_text = response.text
 
-            with st.spinner("កំពុងរៀបចំដំណើរការ AI និងវិភាគវីដេអូ..."):
-                # ត្រៀមម៉ូឌែល Gemini សម្រាប់ដំណើរការ
-                model = genai.GenerativeModel("gemini-1.5-pro")
-                
-                # បង្ហាញដំណឹងជោគជ័យបណ្តោះអាសន្ន (អ្នកអាចកែសម្រួលបន្ថែមតាមតម្រូវការ)
-                st.success("ការតភ្ជាប់ទៅកាន់ Gemini API បានជោគជ័យ! (កូដដំណើរការបន្តអាចដាក់បន្ថែមទីនេះ)")
-                
+            st.success("បកប្រែសាច់រឿងពេញលេញបានជោគជ័យ!")
+            
+            st.subheader("📝 អត្ថបទសាច់រឿងពេញលេញ (សម្រាប់ Copy ដាក់ CapCut):")
+            st.info(translated_text)
+
+            with st.spinner("កំពុងបង្កើតសំឡេង Dubbing ខ្មែរពេញលេញ (MP3)..."):
+                audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
+                asyncio.run(generate_long_audio(translated_text, selected_voice, audio_path))
+
+            st.subheader("🔊 សំឡេង Dubbing ខ្មែរពេញលេញ (AI Voice MP3):")
+            st.audio(audio_path)
+            
+            with open(audio_path, "rb") as f:
+                st.download_button(
+                    label="📥 ទាញយកសំឡេង MP3 នេះ",
+                    data=f,
+                    file_name="khmer_dubbing_audio.mp3",
+                    mime="audio/mp3"
+                )
+
         except Exception as e:
-            st.error(f"មានបញ្តាក្នុងពេលដំណើរការ៖ {e}")
+            st.error(f"មានបញ្ហាកើតឡើង: {e}")
     
