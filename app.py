@@ -11,12 +11,8 @@ st.set_page_config(page_title="AI Movie Subtitle & Dubbing Pro", layout="wide")
 # --- SIDEBAR (ផ្នែកខាងឆ្វេង) ---
 with st.sidebar:
     st.header("⚙️ ការកំណត់ (Settings)")
-    
-    # ទទួលយក API Key គ្រប់ទម្រង់ (ទាំង AIzaSy និង AQ.)
     api_key = st.text_input("បញ្ចូល Google Gemini API Key:", type="password")
-    
     st.divider()
-    
     st.subheader("🎙️ ការកំណត់សំឡេង (Edge-TTS)")
     voice_choice = st.selectbox("ជ្រើសរើសសំឡេង:", ["km-KH-SreymomNeural (ស្រី)", "km-KH-PisethNeural (ប្រុស)"])
     voice_name = "km-KH-SreymomNeural" if "ស្រី" in voice_choice else "km-KH-PisethNeural"
@@ -32,10 +28,9 @@ video_path = None
 if source_type == "Upload វីដេអូផ្ទាល់":
     uploaded_file = st.file_uploader("ជ្រើសរើសဖိုင်វីដេអូ (MP4, MOV)", type=["mp4", "mov", "avi"])
     if uploaded_file is not None:
-        with st.spinner("កំពុងផ្ទុកវីដេអូចូលប្រព័ន្ធ..."):
-            video_path = "temp_video.mp4"
-            with open(video_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
+        video_path = "temp_video.mp4"
+        with open(video_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
         st.success("អាប់ឡូតវីដេអូរួចរាល់!")
 else:
     video_url = st.text_input("បញ្ចូលលីងវីដេអូ (YouTube/TikTok/RedNote/...):")
@@ -52,8 +47,9 @@ else:
                     video_path = "temp_video.mp4"
                     st.success("ទាញយកវីដេអូរួចរាល់!")
                 except Exception as e:
-                    st.error(f"មានបញ្ហាក្នុងการទាញយក: {e}")
+                    st.error(f"មានបញ្ហាក្នុងការទាញយក: {e}")
 
+# បង្ហាញវីដេអូ និងប៊ូតុងបន្ត ពេលដែលមានហ្វាយវីដេអូរួចរាល់
 if video_path and os.path.exists(video_path):
     st.subheader("📺 វីដេអូដើម")
     st.video(video_path)
@@ -67,17 +63,14 @@ if video_path and os.path.exists(video_path):
         else:
             with st.spinner("AI កំពុងវិភាគ និងបង្កើតសាច់រឿង..."):
                 try:
-                    # ប្រើប្រាស់ REST API ជំនាន់ចុងក្រោយ គាំទ្រទាំង OAuth Token (AQ.) និង API Key (AIzaSy)
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
                     
-                    # ពិនិត្យប្រភេទ Key ដើម្បីផ្ញើ Header ឱ្យត្រូវគ្នា
                     if api_key.startswith("AQ."):
                         headers = {
                             'Content-Type': 'application/json',
                             'Authorization': f'Bearer {api_key}'
                         }
                     else:
-                        # បើជា Key ក្បាល AIzaSy ប្រើ Parameter ?key=...
                         url = f"{url}?key={api_key}"
                         headers = {'Content-Type': 'application/json'}
 
@@ -127,7 +120,7 @@ if video_path and os.path.exists(video_path):
                         st.session_state['audio_ready'] = True
                         st.success("បង្កើតសំឡេង MP3 រួចរាល់!")
                     else:
-                        st.error("រកមិនឃើញហ្វាយសំឡេងที่ได้បង្កើតទេ។")
+                        st.error("រកមិនឃើញហ្វាយសំឡេងដែលได้បង្កើតទេ។")
                 except Exception as e:
                     st.error(f"មានបញ្ហាក្នុងការបង្កើតសំឡេង: {e}")
 
@@ -140,5 +133,5 @@ if video_path and os.path.exists(video_path):
                     data=audio_bytes, 
                     file_name="movie_voiceover.mp3", 
                     mime="audio/mp3"
-                    )
-                        
+                        )
+                
