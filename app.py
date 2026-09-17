@@ -1,5 +1,6 @@
 import streamlit as st
-import google.generativeai as genai
+import requests
+import json
 import edge_tts
 import asyncio
 import os
@@ -52,33 +53,39 @@ else:
                     video_path = "temp_video.mp4"
                     st.success("ទាញយកវីដេអូរួចរាល់!")
                 except Exception as e:
-                    st.error(f"មានបញ្ហាក្នុងการទាញយក: {e}")
+                    st.error(f"មានបញ្ហាក្នុងការទាញយក: {e}")
 
 if video_path and os.path.exists(video_path):
     st.subheader("📺 វីដេអូដើម")
     st.video(video_path)
 
-    st.subheader("🤖 បកប្រែសាច់រឿងពេញលេញដោយ Gemini AI")
-    prompt = st.text_area("បញ្ជាបន្ថែមដល់ AI (ស្រេចចិត្ត):", "សូមបកប្រែនិងសរសេរសាច់រឿងរៀបរាប់ពីវីដេអូនេះជាភាសាខ្មែរពេញលេញធម្មជាតិសម្រាប់ทำ Movie Recap:")
+    st.subheader("🤖 បកប្រែសាច់រឿងដោយ Gemini AI")
+    prompt = st.text_area("បញ្ចូលអត្ថបទ ឬសាច់រឿងដែលចង់ឱ្យ AI កែច្នៃ/បកប្រែ:", "សូមសរសេរសាច់រឿងរៀបរាប់ពីវីដេអូនេះជាភាសាខ្មែរពេញលេញធម្មជាតិសម្រាប់ทำ Movie Recap:")
     
-    if st.button("ចាប់ផ្តើមបកប្រែសាច់រឿង"):
+    if st.button("ចាប់ផ្តើមបង្កើតសាច់រឿង"):
         if not api_key:
-            st.warning("សូមបញ្ចូល Gemini API Key នៅផ្នែកខាងឆ្វេង (Sidebar) ជាមុនសិន!")
+            st.warning("សូមបញ្ចូល Google Gemini API Key នៅផ្នែកខាងឆ្វេង (Sidebar) ជាមុនសិន!")
         else:
-            with st.spinner("AI កំពុងវិភាគ និងបកប្រែសាច់រឿង..."):
+            with st.spinner("AI កំពុងបង្កើតសាច់រឿង..."):
                 try:
-                    genai.configure(api_key=api_key)
-                    video_file = genai.upload_file(path=video_path)
-                    while video_file.state.name == "PROCESSING":
-                        import time
-                        time.sleep(2)
-                        video_file = genai.get_file(video_file.name)
+                    # ប្រើប្រាស់ Google Gemini REST API ផ្ទាល់ (รองรับ Key ทุกรูปแบบรวมถึง AQ.)
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+                    headers = {'Content-Type': 'application/json'}
+                    payload = {
+                        "contents": [{
+                            "parts": [{"text": prompt}]
+                        }]
+                    }
                     
-                    model = genai.GenerativeModel("gemini-2.5-flash")
-                    response = model.generate_content([video_file, prompt])
-                    script_text = response.text
-                    st.session_state['script_text'] = script_text
-                    st.success("បកប្រែរួចរាល់!")
+                    response = requests.post(url, headers=headers, data=json.dumps(payload))
+                    res_json = response.json()
+                    
+                    if "candidates" in res_json:
+                        script_text = res_json["candidates"][0]["content"]["parts"][0]["text"]
+                        st.session_state['script_text'] = script_text
+                        st.success("បង្កើតសាច់រឿងរួចរាល់!")
+                    else:
+                        st.error(f"កំហុសពី API: {res_json}")
                 except Exception as e:
                     st.error(f"កំហុសឆ្គង: {e}")
 
@@ -112,7 +119,7 @@ if video_path and os.path.exists(video_path):
                     else:
                         st.error("រកមិនឃើញហ្វាយសំឡេងដែលបានបង្កើតទេ។")
                 except Exception as e:
-                    st.error(f"មានបញ្ហាក្នុងการបង្កើតសំឡេង: {e}")
+                    st.error(f"មានបញ្ហាក្នុងការបង្កើតសំឡេង: {e}")
 
         # បង្ហាញប៊ូតុងស្តាប់ និងដោនឡុត ប្រសិនបើហ្វាយមានរួចរាល់
         if st.session_state.get('audio_ready', False) and os.path.exists("output_audio.mp3"):
@@ -124,5 +131,5 @@ if video_path and os.path.exists(video_path):
                     data=audio_bytes, 
                     file_name="movie_voiceover.mp3", 
                     mime="audio/mp3"
-    )
-        
+                )
+                
