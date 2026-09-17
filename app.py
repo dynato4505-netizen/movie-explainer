@@ -3,17 +3,27 @@ import google.generativeai as genai
 import edge_tts
 import asyncio
 import os
-import cv2
-from PIL import Image
 import yt_dlp
 
 st.set_page_config(page_title="AI Movie Subtitle & Dubbing Pro", layout="wide")
 
-st.title("🎬 AI Movie Subtitle & Dubbing Pro (Khmer)")
-st.write("Tool សម្រាប់ទាញយកវីដេអូ កាត់យករូប Thumbnail បកប្រែសាច់រឿងដោយ Gemini និងបង្កើតសំឡេងនិយាយខ្មែរដោយ Edge-TTS")
+# --- SIDEBAR (ផ្នែកខាងឆ្វេង) ---
+with st.sidebar:
+    st.header("⚙️ ការកំណត់ (Settings)")
+    
+    # API Key Config នៅខាងលើគេក្នុង Sidebar
+    api_key = st.text_input("បញ្ចូល Google Gemini API Key:", type="password")
+    
+    st.divider()
+    
+    # ជ្រើសរើសសំឡេងប្រុស/ស្រី នៅខាងក្រោម API Key ក្នុង Sidebar
+    st.subheader("🎙️ ការកំណត់សំឡេង (Edge-TTS)")
+    voice_choice = st.selectbox("ជ្រើសរើសសំឡេង:", ["km-KH-SreymomNeural (ស្រី)", "km-KH-PisethNeural (ប្រុស)"])
+    voice_name = "km-KH-SreymomNeural" if "ស្រី" in voice_choice else "km-KH-PisethNeural"
 
-# API Key Config
-api_key = st.text_input("បញ្ចូល Google Gemini API Key:", type="password")
+# --- MAIN CONTENT (ផ្នែកខាងស្តាំ / អេក្រង់មេ) ---
+st.title("🎬 HD-AI សម្រាយរឿង Pro")
+st.write("Tool សម្រាប់ទាញយកវីដេអូ បកប្រែសាច់រឿងដោយ Gemini និងបង្កើតសំឡេងនិយាយខ្មែរ")
 
 # Input source
 source_type = st.radio("ជ្រើសរើសប្រភពវីដេអូ:", ["Upload វីដេអូផ្ទាល់", "ទាញយកតាម Link (YouTube/TikTok/...)"])
@@ -42,31 +52,18 @@ else:
                     video_path = "temp_video.mp4"
                     st.success("ទាញយកវីដេអូរួចរាល់!")
                 except Exception as e:
-                    st.error(f"មានបញ្ហាក្នុងការទាញយក: {e}")
+                    st.error(f"មានបញ្ហាក្នុងการទាញយក: {e}")
 
 if video_path and os.path.exists(video_path):
-    st.subheader("📺 វីដេអូដើម និង Thumbnail")
+    st.subheader("📺 វីដេអូដើម")
     st.video(video_path)
-    
-    # Auto-Thumbnail extraction
-    cap = cv2.VideoCapture(video_path)
-    success, frame = cap.read()
-    if success:
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        thumb_img = Image.fromarray(frame_rgb)
-        thumb_path = "thumbnail.jpg"
-        thumb_img.save(thumb_path)
-        st.image(thumb_img, caption="រូប Thumbnail ស្វ័យប្រវត្តិ", use_container_width=True)
-        with open(thumb_path, "rb") as file:
-            st.download_button("📥 ទាញយក Thumbnail", data=file, file_name="thumbnail.jpg", mime="image/jpeg")
-    cap.release()
 
     st.subheader("🤖 បកប្រែសាច់រឿងពេញលេញដោយ Gemini AI")
     prompt = st.text_area("បញ្ជាបន្ថែមដល់ AI (ស្រេចចិត្ត):", "សូមបកប្រែនិងសរសេរសាច់រឿងរៀបរាប់ពីវីដេអូនេះជាភាសាខ្មែរពេញលេញធម្មជាតិសម្រាប់ทำ Movie Recap:")
     
     if st.button("ចាប់ផ្តើមបកប្រែសាច់រឿង"):
         if not api_key:
-            st.warning("សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
+            st.warning("សូមបញ្ចូល Gemini API Key នៅផ្នែកខាងឆ្វេង (Sidebar) ជាមុនសិន!")
         else:
             with st.spinner("AI កំពុងវិភាគ និងបកប្រែសាច់រឿង..."):
                 try:
@@ -88,10 +85,6 @@ if video_path and os.path.exists(video_path):
     if 'script_text' in st.session_state:
         st.text_area("អត្ថបទសាច់រឿង (Full Script):", st.session_state['script_text'], height=200)
         
-        st.subheader("🎙️ បង្កើតសំឡេងនិយាយខ្មែរ (Edge-TTS)")
-        voice_choice = st.selectbox("ជ្រើសរើសសំឡេង:", ["km-KH-SreymomNeural (ស្រី)", "km-KH-PisethNeural (ប្រុស)"])
-        voice_name = "km-KH-SreymomNeural" if "ស្រី" in voice_choice else "km-KH-PisethNeural"
-        
         if st.button("បង្កើតសំឡេង MP3"):
             with st.spinner("កំពុងបង្កើតសំឡេងនិយាយ..."):
                 audio_output_path = "output_audio.mp3"
@@ -101,7 +94,6 @@ if video_path and os.path.exists(video_path):
                     await communicate.save(audio_output_path)
                 
                 try:
-                    # ជួសជុលកូដហៅ Async ឱ្យមានស្ថេរភាពលើ Streamlit Cloud
                     try:
                         loop = asyncio.get_event_loop()
                     except RuntimeError:
@@ -120,7 +112,7 @@ if video_path and os.path.exists(video_path):
                     else:
                         st.error("រកមិនឃើញហ្វាយសំឡេងដែលបានបង្កើតទេ។")
                 except Exception as e:
-                    st.error(f"មានបញ្ហាក្នុងការបង្កើតសំឡេង: {e}")
+                    st.error(f"មានបញ្ហាក្នុងการបង្កើតសំឡេង: {e}")
 
         # បង្ហាញប៊ូតុងស្តាប់ និងដោនឡុត ប្រសិនបើហ្វាយមានរួចរាល់
         if st.session_state.get('audio_ready', False) and os.path.exists("output_audio.mp3"):
@@ -133,4 +125,4 @@ if video_path and os.path.exists(video_path):
                     file_name="movie_voiceover.mp3", 
                     mime="audio/mp3"
     )
-                        
+        
