@@ -1,8 +1,9 @@
 streamlit
-google-genai
+google-generativeai
 edge-tts
 yt-dlp
 opencv-python-headless
 numpy
 Pillow
 requests
+nest-asyncio
