@@ -1,137 +1,172 @@
+Jo Jox:
 import streamlit as st
-import requests
-import json
-import edge_tts
+from google import genai
 import asyncio
+import edge_tts
+import tempfile
 import os
 import yt_dlp
+import re
+import cv2
 
-st.set_page_config(page_title="AI Movie Subtitle & Dubbing Pro", layout="wide")
+st.set_page_config(page_title="AI Movie Subtitle & Dubbing Pro", page_icon="🎬")
 
-# --- SIDEBAR (ផ្នែកខាងឆ្វេង) ---
 with st.sidebar:
     st.header("⚙️ ការកំណត់ (Settings)")
     api_key = st.text_input("បញ្ចូល Google Gemini API Key:", type="password")
-    st.divider()
-    st.subheader("🎙️ ការកំណត់សំឡេង (Edge-TTS)")
-    voice_choice = st.selectbox("ជ្រើសរើសសំឡេង:", ["km-KH-SreymomNeural (ស្រី)", "km-KH-PisethNeural (ប្រុស)"])
-    voice_name = "km-KH-SreymomNeural" if "ស្រី" in voice_choice else "km-KH-PisethNeural"
+    
+    voice_option = st.selectbox(
+        "ជ្រើសរើសសំឡេង Dubbing:",
+        ("Sreymom (ស្រី - ធម្មជាតិ)", "Piseth (ប្រុស - ធម្មជាតិ)")
+    )
+    
+    if "Sreymom" in voice_option:
+        selected_voice = "km-KH-SreymomNeural"
+    else:
+        selected_voice = "km-KH-PisethNeural"
 
-# --- MAIN CONTENT (ផ្នែកខាងស្តាំ / អេក្រង់មេ) ---
-st.title("🎬 HD-AI សម្រាយរឿង Pro")
-st.write("Tool សម្រាប់ទាញយកវីដេអូ បកប្រែសាច់រឿងដោយ Gemini និងបង្កើតសំឡេងនិយាយខ្មែរ")
+st.title("🎬 AI Movie Subtitle & Dubbing Pro")
+st.write("បកប្រែវីដេអូពេញលេញជា Subtitle ខ្មែរ និងបង្កើតសំឡេង Dubbing ត្រូវសាច់រឿងពីដើមដល់ចប់ដោយរលូន!")
 
-source_type = st.radio("ជ្រើសរើសប្រភពវីដេអូ:", ["Upload វីដេអូផ្ទាល់", "ទាញយកតាម Link (YouTube/TikTok/RedNote)"])
+input_method = st.radio("ជ្រើសរើសប្រភពវីដេអូ៖", ("📁 Upload វីដេអូពីកុំព្យូទ័រ", "🔗 បិទភ្ជាប់លីង (TikTok, YouTube, FB)"))
 
 video_path = None
+thumbnail_path = None
 
-if source_type == "Upload វីដេអូផ្ទាល់":
-    uploaded_file = st.file_uploader("ជ្រើសរើសဖိုင်វីដេអូ (MP4, MOV)", type=["mp4", "mov", "avi"])
+if input_method == "📁 Upload វីដេអូពីកុំព្យូទ័រ":
+    uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP4, MOV, AVI):", type=["mp4", "mov", "avi"])
     if uploaded_file is not None:
-        video_path = "temp_video.mp4"
-        with open(video_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        st.success("អាប់ឡូតវីដេអូរួចរាល់!")
+        tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+        tfile.write(uploaded_file.read())
+        video_path = tfile.name
+
 else:
-    video_url = st.text_input("បញ្ចូលលីងវីដេអូ (YouTube/TikTok/RedNote/...):")
-    if video_url:
-        if st.button("ទាញយកវីដេអូ"):
-            with st.spinner("កំពុងទាញយកវីដេអូ សូមរង់ចាំបន្តិច..."):
-                ydl_opts = {
-                    'format': 'best',
-                    'outtmpl': 'temp_video.mp4',
-                }
-                try:
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        ydl.download([video_url])
-                    video_path = "temp_video.mp4"
-                    st.success("ទាញយកវីដេអូរួចរាល់!")
-                except Exception as e:
-                    st.error(f"មានបញ្ហាក្នុងការទាញយក: {e}")
-
-# បង្ហាញវីដេអូ និងប៊ូតុងបន្ត ពេលដែលមានហ្វាយវីដេអូរួចរាល់
-if video_path and os.path.exists(video_path):
-    st.subheader("📺 វីដេអូដើម")
-    st.video(video_path)
-
-    st.subheader("🤖 បកប្រែសាច់រឿងដោយ Gemini AI")
-    prompt = st.text_area("បញ្ចូលអត្ថបទ ឬបញ្ជាដល់ AI:", "សូមសរសេរសាច់រឿងរៀបរាប់ពីវីដេអូនេះជាភាសាខ្មែរពេញលេញធម្មជាតិសម្រាប់ทำ Movie Recap:")
+    st.info("💡 ចំណាំ៖ សម្រាប់ RedNote សូម Download វីដេអូទុកក្នុងទូរសព្ទ/កុំព្យូទ័រ រួចជ្រើសរើស Upload ផ្ទាល់ គឺធានាថាលឿន និងមិន Error ទេ។")
+    raw_video_url = st.text_input("សូមបិទភ្ជាប់ (Paste) លីងវីដេអូ (YouTube, TikTok, FB):")
     
-    if st.button("ចាប់ផ្តើមបង្កើតសាច់រឿង"):
-        if not api_key:
-            st.warning("សូមបញ្ចូល Google Gemini API Key នៅផ្នែកខាងឆ្វេង (Sidebar) ជាមុនសិន!")
-        else:
-            with st.spinner("AI កំពុងវិភាគ និងបង្កើតសាច់រឿង..."):
-                try:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
-                    
-                    if api_key.startswith("AQ."):
-                        headers = {
-                            'Content-Type': 'application/json',
-                            'Authorization': f'Bearer {api_key}'
-                        }
-                    else:
-                        url = f"{url}?key={api_key}"
-                        headers = {'Content-Type': 'application/json'}
+    if raw_video_url and st.button("⬇️ ទាញយកវីដេអូចូល Tool"):
+        with st.spinner("កំពុងទាញយកវីដេអូ សូមរង់ចាំបន្តិច..."):
+            try:
+                url_match = re.search(r'https?://[^\s]+', raw_video_url)
+                clean_url = url_match.group(0) if url_match else raw_video_url
+                clean_url = clean_url.strip(')"]}')
 
-                    payload = {
-                        "contents": [{
-                            "parts": [{"text": prompt}]
-                        }]
-                    }
-                    
-                    response = requests.post(url, headers=headers, data=json.dumps(payload))
-                    res_json = response.json()
-                    
-                    if "candidates" in res_json:
-                        script_text = res_json["candidates"][0]["content"]["parts"][0]["text"]
-                        st.session_state['script_text'] = script_text
-                        st.success("បង្កើតសាច់រឿងរួចរាល់!")
-                    else:
-                        st.error(f"កំហុសពី API: {res_json}")
-                except Exception as e:
-                    st.error(f"កំហុសឆ្គង: {e}")
+                downloaded_file_path = "downloaded_video.mp4"
+                if os.path.exists(downloaded_file_path):
+                    os.remove(downloaded_file_path)
+                
+                ydl_opts = {
+                    'outtmpl': downloaded_file_path,
+                    'format': 'best',
+                    'socket_timeout': 30,
+                }
+                
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([clean_url])
+                
+                if os.path.exists(downloaded_file_path):
+                    video_path = downloaded_file_path
+                    st.success("ទាញយកវីដេអូបានជោគជ័យ!")
+            except Exception as e:
+                st.error(f"មិនអាចទាញយកលីងនេះបានទេ៖ {e}")
 
-    if 'script_text' in st.session_state:
-        st.text_area("អត្ថបទសាច់រឿង (Full Script):", st.session_state['script_text'], height=200)
+if video_path and os.path.exists(video_path):
+    st.video(video_path)
+    
+    try:
+        cap = cv2.VideoCapture(video_path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         
-        if st.button("បង្កើតសំឡេង MP3"):
-            with st.spinner("កំពុងបង្កើតសំឡេងនិយាយ..."):
-                audio_output_path = "output_audio.mp3"
-                
-                async def generate_audio():
-                    communicate = edge_tts.Communicate(st.session_state['script_text'], voice_name)
-                    await communicate.save(audio_output_path)
-                
-                try:
-                    try:
-                        loop = asyncio.get_event_loop()
-                    except RuntimeError:
-                        loop = asyncio.new_event_loop()
-                        asyncio.set_event_loop(loop)
-                    
-                    if loop.is_running():
-                        import nest_asyncio
-                        nest_asyncio.apply()
-                    
-                    loop.run_until_complete(generate_audio())
-                    
-                    if os.path.exists(audio_output_path):
-                        st.session_state['audio_ready'] = True
-                        st.success("បង្កើតសំឡេង MP3 រួចរាល់!")
-                    else:
-                        st.error("រកមិនឃើញហ្វាយសំឡេងដែលได้បង្កើតទេ។")
-                except Exception as e:
-                    st.error(f"មានបញ្ហាក្នុងការបង្កើតសំឡេង: {e}")
+        if fps > 0 and total_frames > 0:
+            target_frame = int(fps * 2) if total_frames > int(fps * 2) else total_frames // 2
+            cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+            success, frame = cap.read()
+            
+            if success:
+                thumb_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+                cv2.imwrite(thumb_temp.name, frame)
+                thumbnail_path = thumb_temp.name
+        cap.release()
+    except Exception as ex:
+        print(f"Error generating thumbnail: {ex}")
 
-        if st.session_state.get('audio_ready', False) and os.path.exists("output_audio.mp3"):
-            with open("output_audio.mp3", "rb") as audio_file:
-                audio_bytes = audio_file.read()
-                st.audio(audio_bytes, format='audio/mp3')
-                st.download_button(
-                    label="📥 ទាញយកហ្វាយ MP3 សំឡេង", 
-                    data=audio_bytes, 
-                    file_name="movie_voiceover.mp3", 
-                    mime="audio/mp3"
-                        )
+    if thumbnail_path and os.path.exists(thumbnail_path):
+        st.subheader("🖼️ រូប Thumbnail ដែល Tool កាត់បានពីវីដេអូ៖")
+        st.image(thumbnail_path, use_container_width=True)
+        
+        with open(thumbnail_path, "rb") as img_file:
+            st.download_button(
+                label="📥 ទាញយក Thumbnail នេះ",
+                data=img_file,
+                file_name="video_thumbnail.jpg",
+                mime="image/jpeg"
+            )
+
+async def generate_long_audio(text, voice, output_path):
+    max_chars = 3000
+    text_chunks = [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
+    
+    temp_files = []
+    for idx, chunk in enumerate(text_chunks):
+        chunk_path = tempfile.NamedTemporaryFile(delete=False, suffix=f'_part{idx}.mp3').name
+        communicate = edge_tts.Communicate(chunk, voice)
+        await communicate.save(chunk_path)
+        temp_files.append(chunk_path)
+    
+    with open(output_path, 'wb') as outfile:
+        for f_path in temp_files:
+            with open(f_path, 'rb') as infile:
+                outfile.write(infile.read())
+            os.remove(f_path)
+
+if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប្រែ និងបង្កើតសំឡេង MP3"):
+    if not api_key:
+        st.error("សូមបញ្ចូល Google Gemini API Key នៅកន្លែង Settings ខាងឆ្វេងជាមុនសិន!")
+    elif not video_path:
+        st.warning("សូម Upload វីដេអូ ឬទាញយកវីដេអូតាមលីងជាមុនសិន!")
+    else:
+        try:
+            client = genai.Client(api_key=api_key)
+            
+            with st.spinner("កំពុងបកប្រែសាច់រឿងពេញលេញគ្រប់វិនាទីពីវីដេអូ... (សូមរង់ចាំបន្តិច)"):
+                video_file = client.files.upload(file=video_path)
                 
+                prompt = (
+                    "Listen and translate the full video from start to finish into natural Khmer. "
+                    "Do NOT summarize, do NOT recap, and do NOT cut short. Translate every conversation, event, and detail thoroughly "
+                    "so that the narrative covers the entire runtime sequence naturally. "
+                    "CRITICAL INSTRUCTIONS: "
+                    "1. Present it as a smooth, continuous script covering all events from beginning to the end. "
+                    "2. Do NOT include any timestamps, time markers, brackets, or code symbols."
+                )
+                
+                response = client.models.generate_content(
+                    model='gemini-3.6-flash',
+                    contents=[video_file, prompt]
+                )
+                
+                translated_text = response.text
+
+            st.success("បកប្រែសាច់រឿងពេញលេញបានជោគជ័យ!")
+            
+            st.subheader("📝 អត្ថបទសាច់រឿងពេញលេញ (សម្រាប់ Copy ដាក់ CapCut):")
+            st.info(translated_text)
+
+            with st.spinner("កំពុងបង្កើតសំឡេង Dubbing ខ្មែរពេញលេញ (MP3)..."):
+                audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
+                asyncio.run(generate_long_audio(translated_text, selected_voice, audio_path))
+
+            st.subheader("🔊 សំឡេង Dubbing ខ្មែរពេញលេញ (AI Voice MP3):")
+            st.audio(audio_path)
+            
+            with open(audio_path, "rb") as f:
+                st.download_button(
+                    label="📥 ទាញយកសំឡេង MP3 នេះ",
+                    data=f,
+                    file_name="khmer_dubbing_audio.mp3",
+                    mime="audio/mp3"
+                )
+
+        except Exception as e:
+            st.error(f"មានបញ្ហាកើតឡើង: {e}")
