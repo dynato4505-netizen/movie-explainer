@@ -1,3 +1,6 @@
+# ==========================================
+# 1. IMPORT LIBRARIES (នាំចូលបណ្ណាល័យចាំបាច់)
+# ==========================================
 import streamlit as st
 import requests
 import json
@@ -11,6 +14,9 @@ import cv2
 import time
 import google.generativeai as genai
 
+# ==========================================
+# 2. STREAMLIT APP CONFIGURATION & SIDEBAR
+# ==========================================
 st.set_page_config(page_title="AI Movie Subtitle & Dubbing Pro", page_icon="🎬")
 
 with st.sidebar:
@@ -22,11 +28,15 @@ with st.sidebar:
         ("Sreymom (ស្រី - ធម្មជាតិ)", "Piseth (ប្រុស - ធម្មជាតិ)")
     )
     
+    # កំណត់កូដសំឡេងតាមជម្រើស
     if "Sreymom" in voice_option:
         selected_voice = "km-KH-SreymomNeural"
     else:
         selected_voice = "km-KH-PisethNeural"
 
+# ==========================================
+# 3. MAIN INTERFACE & VIDEO INPUT METHODS
+# ==========================================
 st.title("🎬 AI Movie Subtitle & Dubbing Pro")
 st.write("បកប្រែវីដេអូពេញលេញជា Subtitle ខ្មែរ និងបង្កើតសំឡេង Dubbing ត្រូវសាច់រឿងពីដើមដល់ចប់ដោយរលូន!")
 
@@ -35,6 +45,7 @@ input_method = st.radio("ជ្រើសរើសប្រភពវីដេអ�
 video_path = None
 thumbnail_path = None
 
+# ករណី Upload វីដេអូផ្ទាល់ពីកុំព្យូទ័រ
 if input_method == "📁 Upload វីដេអូពីកុំព្យូទ័រ":
     uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP4, MOV, AVI):", type=["mp4", "mov", "avi"])
     if uploaded_file is not None:
@@ -42,6 +53,7 @@ if input_method == "📁 Upload វីដេអូពីកុំព្យូទ
         tfile.write(uploaded_file.read())
         video_path = tfile.name
 
+# ករណីប្រើប្រាស់លីងទាញយកវីដេអូ
 else:
     st.info("💡 ចំណាំ៖ សម្រាប់ RedNote សូម Download វីដេអូទុកក្នុងទូរសព្ទ/កុំព្យូទ័រ រួចជ្រើសរើស Upload ផ្ទាល់ គឺធានាថាលឿន និងមិន Error ទេ។")
     raw_video_url = st.text_input("សូមបិទភ្ជាប់ (Paste) លីងវីដេអូ (YouTube, TikTok, FB):")
@@ -72,6 +84,9 @@ else:
             except Exception as e:
                 st.error(f"មិនអាចទាញយកលីងនេះបានទេ៖ {e}")
 
+# ==========================================
+# 4. VIDEO PREVIEW & THUMBNAIL GENERATION
+# ==========================================
 if video_path and os.path.exists(video_path):
     st.video(video_path)
     
@@ -105,6 +120,9 @@ if video_path and os.path.exists(video_path):
                 mime="image/jpeg"
             )
 
+# ==========================================
+# 5. ASYNC AUDIO GENERATION FUNCTION (EDGE-TTS)
+# ==========================================
 async def generate_long_audio(text, voice, output_path):
     max_chars = 3000
     text_chunks = [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
@@ -122,6 +140,9 @@ async def generate_long_audio(text, voice, output_path):
                 outfile.write(infile.read())
             os.remove(f_path)
 
+# ==========================================
+# 6. EXECUTION BUTTON & API PROCESSING
+# ==========================================
 if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប្រែ និងបង្កើតសំឡេង MP3"):
     if not api_key:
         st.error("សូមបញ្ចូល Google Gemini API Key នៅកន្លែង Settings ខាងឆ្វេងជាមុនសិន!")
@@ -129,7 +150,8 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
         st.warning("សូម Upload វីដេអូ ឬទាញយកវីដេអូតាមលីងជាមុនសិន!")
     else:
         try:
-            # ១. កំណត់រៀបចំ API Key
             genai.configure(api_key=api_key)
 
-      
+            with st.spinner("កំពុង Upload..."):
+                # កូដដំណើរការបន្តនៅទីនេះ...
+                                                                           
