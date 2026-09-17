@@ -11,13 +11,8 @@ st.set_page_config(page_title="AI Movie Subtitle & Dubbing Pro", layout="wide")
 # --- SIDEBAR (ផ្នែកខាងឆ្វេង) ---
 with st.sidebar:
     st.header("⚙️ ការកំណត់ (Settings)")
-    
-    # API Key Config នៅខាងលើគេក្នុង Sidebar
     api_key = st.text_input("បញ្ចូល Google Gemini API Key:", type="password")
-    
     st.divider()
-    
-    # ជ្រើសរើសសំឡេងប្រុស/ស្រី នៅខាងក្រោម API Key ក្នុង Sidebar
     st.subheader("🎙️ ការកំណត់សំឡេង (Edge-TTS)")
     voice_choice = st.selectbox("ជ្រើសរើសសំឡេង:", ["km-KH-SreymomNeural (ស្រី)", "km-KH-PisethNeural (ប្រុស)"])
     voice_name = "km-KH-SreymomNeural" if "ស្រី" in voice_choice else "km-KH-PisethNeural"
@@ -26,7 +21,6 @@ with st.sidebar:
 st.title("🎬 HD-AI សម្រាយរឿង Pro")
 st.write("Tool សម្រាប់ទាញយកវីដេអូ បកប្រែសាច់រឿងដោយ Gemini និងបង្កើតសំឡេងនិយាយខ្មែរ")
 
-# Input source
 source_type = st.radio("ជ្រើសរើសប្រភពវីដេអូ:", ["Upload វីដេអូផ្ទាល់", "ទាញយកតាម Link (YouTube/TikTok/...)"])
 
 video_path = None
@@ -34,15 +28,16 @@ video_path = None
 if source_type == "Upload វីដេអូផ្ទាល់":
     uploaded_file = st.file_uploader("ជ្រើសរើសဖိုင်វីដេអូ (MP4, MOV)", type=["mp4", "mov", "avi"])
     if uploaded_file is not None:
-        video_path = "temp_video.mp4"
-        with open(video_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
+        with st.spinner("កំពុងផ្ទុកវីដេអូចូលប្រព័ន្ធ សូមរង់ចាំបន្តិច..."):
+            video_path = "temp_video.mp4"
+            with open(video_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
         st.success("អាប់ឡូតវីដេអូរួចរាល់!")
 else:
     video_url = st.text_input("បញ្ចូលលីងវីដេអូ (YouTube/TikTok/...):")
     if video_url:
         if st.button("ទាញយកវីដេអូ"):
-            with st.spinner("កំពុងទាញយកវីដេអូ..."):
+            with st.spinner("កំពុងទាញយកវីដេអូពីលីង..."):
                 ydl_opts = {
                     'format': 'best',
                     'outtmpl': 'temp_video.mp4',
@@ -60,15 +55,14 @@ if video_path and os.path.exists(video_path):
     st.video(video_path)
 
     st.subheader("🤖 បកប្រែសាច់រឿងដោយ Gemini AI")
-    prompt = st.text_area("បញ្ចូលអត្ថបទ ឬសាច់រឿងដែលចង់ឱ្យ AI កែច្នៃ/បកប្រែ:", "សូមសរសេរសាច់រឿងរៀបរាប់ពីវីដេអូនេះជាភាសាខ្មែរពេញលេញធម្មជាតិសម្រាប់ทำ Movie Recap:")
+    prompt = st.text_area("បញ្ចូលអត្ថបទ ឬបញ្ជាដល់ AI:", "សូមសរសេរសាច់រឿងរៀបរាប់ពីវីដេអូនេះជាភាសាខ្មែរពេញលេញធម្មជាតិសម្រាប់ทำ Movie Recap:")
     
     if st.button("ចាប់ផ្តើមបង្កើតសាច់រឿង"):
         if not api_key:
             st.warning("សូមបញ្ចូល Google Gemini API Key នៅផ្នែកខាងឆ្វេង (Sidebar) ជាមុនសិន!")
         else:
-            with st.spinner("AI កំពុងបង្កើតសាច់រឿង..."):
+            with st.spinner("AI កំពុងវិភាគ និងបង្កើតសាច់រឿង..."):
                 try:
-                    # ប្រើប្រាស់ Google Gemini REST API ផ្ទាល់ (รองรับ Key ทุกรูปแบบรวมถึง AQ.)
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
                     headers = {'Content-Type': 'application/json'}
                     payload = {
@@ -121,7 +115,6 @@ if video_path and os.path.exists(video_path):
                 except Exception as e:
                     st.error(f"មានបញ្ហាក្នុងការបង្កើតសំឡេង: {e}")
 
-        # បង្ហាញប៊ូតុងស្តាប់ និងដោនឡុត ប្រសិនបើហ្វាយមានរួចរាល់
         if st.session_state.get('audio_ready', False) and os.path.exists("output_audio.mp3"):
             with open("output_audio.mp3", "rb") as audio_file:
                 audio_bytes = audio_file.read()
@@ -131,5 +124,5 @@ if video_path and os.path.exists(video_path):
                     data=audio_bytes, 
                     file_name="movie_voiceover.mp3", 
                     mime="audio/mp3"
-                )
-                
+                    )
+                    
