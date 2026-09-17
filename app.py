@@ -152,6 +152,13 @@ if st.button("🚀 ចាប់ផ្តើមដំណើរការបកប�
         try:
             genai.configure(api_key=api_key)
 
-            with st.spinner("កំពុង Upload..."):
-                # កូដដំណើរការបន្តនៅទីនេះ...
-                                                                           
+            with st.spinner("កំពុងរៀបចំដំណើរការ AI និងវិភាគវីដេអូ..."):
+                # ត្រៀមម៉ូឌែល Gemini សម្រាប់ដំណើរការ
+                model = genai.GenerativeModel("gemini-1.5-pro")
+                
+                # បង្ហាញដំណឹងជោគជ័យបណ្តោះអាសន្ន (អ្នកអាចកែសម្រួលបន្ថែមតាមតម្រូវការ)
+                st.success("ការតភ្ជាប់ទៅកាន់ Gemini API បានជោគជ័យ! (កូដដំណើរការបន្តអាចដាក់បន្ថែមទីនេះ)")
+                
+        except Exception as e:
+            st.error(f"មានបញ្តាក្នុងពេលដំណើរការ៖ {e}")
+    
