@@ -8,7 +8,7 @@ import re
 import cv2
 import google.generativeai as genai
 
-st.set_page_config(page_title="AI Movie & Podcast Pro", page_icon="🎬", layout="wide")
+st.set_page_config(page_title="Podcast & Movie Pro", page_icon="🎬", layout="wide")
 
 # --- SIDEBAR (ផ្នែកការកំណត់) ---
 with st.sidebar:
@@ -67,9 +67,9 @@ with st.sidebar:
     st.info("💡 ប្រើប្រាស់ Edge-TTS ប្រកបដោយសុវត្ថិភាពខ្ពស់ គ្មាន Error 401 ។")
 
 # --- MAIN APP (អេក្រង់មេ) ---
-st.title("🎬 AI Movie & Podcast Pro")
+st.title("🎬 Podcast & Movie Dubbing Pro")
 if "Podcast" in app_mode:
-    st.write("🎙️ មុខងារ Podcast: ដាក់វីដេអូ ឬអត្ថបទខ្មែរ រួចបកប្រែ និងបង្កើតជាសំឡេង Podcast ភាសាអង់គ្លេស!")
+    st.write("🎙️ មុខងារ Podcast: ដាក់វីដេអូខ្មែរ រួចបកប្រែ និងបង្កើតជាសំឡេង Podcast ភាសាអង់គ្លេស!")
 else:
     st.write("🎬 មុខងារសម្រាយរឿង: ដាក់វីដេអូ និងបង្កើតសំឡេងនិយាយខ្មែរពីដើមដល់ចប់ដោយរលូន!")
 
@@ -98,10 +98,12 @@ else:
                 if os.path.exists(downloaded_file_path):
                     os.remove(downloaded_file_path)
                 
+                # កែសម្រួល ydl_opts ឱ្យទាញយកដោយរលូន មិនទាមទារ ffmpeg
                 ydl_opts = {
                     'outtmpl': downloaded_file_path,
-                    'format': 'best',
+                    'format': 'b[ext=mp4]/best',
                     'socket_timeout': 30,
+                    'noplaylist': True,
                 }
                 
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -109,7 +111,7 @@ else:
                 
                 if os.path.exists(downloaded_file_path):
                     video_path = downloaded_file_path
-                    st.success("ទាញយកវីដេអូได้ជោគជ័យ!")
+                    st.success("ទាញយកវីដេអូបានជោគជ័យ!")
             except Exception as e:
                 st.error(f"មិនអាចទាញយកលីងនេះបានទេ៖ {e}")
 
@@ -234,4 +236,3 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតសំឡេង 
 
         except Exception as e:
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
-            
