@@ -15,7 +15,6 @@ with st.sidebar:
     st.header("⚙️ ការកំណត់ (Settings)")
     api_key = st.text_input("បញ្ចូល Google Gemini API Key:", type="password")
     
-    # ជ្រើសរើសមុខងារ Tool
     app_mode = st.radio(
         "ជ្រើសរើសរបៀបប្រើប្រាស់៖",
         ("🎬 សម្រាយរឿង (Khmer Dubbing)", "🎙️ បកប្រែវីដេអូជា Podcast (English)")
@@ -98,8 +97,9 @@ else:
                 if os.path.exists(downloaded_file_path):
                     os.remove(downloaded_file_path)
                 
-                # លុប format ចោល ដើម្បីឱ្យ yt-dlp ទាញយកដោយស្វ័យប្រវត្តិ មិនមាន Error
+                # កែសម្រួលត្រង់នេះ៖ ប្រើ format: 'best' ដើម្បីកុំឱ្យទាមទារ ffmpeg
                 ydl_opts = {
+                    'format': 'best',
                     'outtmpl': downloaded_file_path,
                     'socket_timeout': 30,
                     'noplaylist': True,
@@ -235,4 +235,4 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតសំឡេង 
 
         except Exception as e:
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
-    
+                    
