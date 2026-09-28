@@ -98,10 +98,9 @@ else:
                 if os.path.exists(downloaded_file_path):
                     os.remove(downloaded_file_path)
                 
-                # កែសម្រួល ydl_opts ឱ្យទាញយកដោយរលូន មិនទាមទារ ffmpeg
+                # លុប format ចោល ដើម្បីឱ្យ yt-dlp ទាញយកដោយស្វ័យប្រវត្តិ មិនមាន Error
                 ydl_opts = {
                     'outtmpl': downloaded_file_path,
-                    'format': 'b[ext=mp4]/best',
                     'socket_timeout': 30,
                     'noplaylist': True,
                 }
@@ -236,3 +235,4 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតសំឡេង 
 
         except Exception as e:
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
+    
