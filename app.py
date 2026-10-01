@@ -5,7 +5,6 @@ import tempfile
 import os
 import yt_dlp
 import re
-import cv2
 import google.generativeai as genai
 
 st.set_page_config(page_title="Podcast & Movie Pro", page_icon="🎬", layout="wide")
@@ -13,7 +12,7 @@ st.set_page_config(page_title="Podcast & Movie Pro", page_icon="🎬", layout="w
 # --- SIDEBAR (ផ្នែកការកំណត់) ---
 with st.sidebar:
     st.header("⚙️ ការកំណត់ (Settings)")
-    api_key = st.text_input("បញ្ចូល Google Gemini API Key:", type="password")
+    api_key = st.text_input("បញ្ចូល Google Gemini API Key (AQ. ឬ AIzaSy):", type="password")
     
     app_mode = st.radio(
         "ជ្រើសរើសរបៀបប្រើប្រាស់៖",
@@ -63,19 +62,18 @@ with st.sidebar:
         else:
             selected_voice = "km-KH-PisethNeural"
     
-    st.info("💡 ប្រើប្រាស់ Edge-TTS ប្រកបដោយសុវត្ថិភាពខ្ពស់ គ្មាន Error 401 ។")
+    st.info("💡 ដំណើរការដោយរលូនជាមួយ Edge-TTS និង Gemini API។")
 
 # --- MAIN APP (អេក្រង់មេ) ---
 st.title("🎬 Podcast & Movie Dubbing Pro")
 if "Podcast" in app_mode:
-    st.write("🎙️ មុខងារ Podcast: ដាក់វីដេអូខ្មែរ រួចបកប្រែ និងបង្កើតជាសំឡេង Podcast ភាសាអង់គ្លេស!")
+    st.write("🎙️ មុខងារ Podcast: ដាក់វីដេអូ រួចបកប្រែ និងបង្កើតជាសំឡេង Podcast ភាសាអង់គ្លេស!")
 else:
-    st.write("🎬 មុខងារសម្រាយរឿង: ដាក់វីដេអូ និងបង្កើតសំឡេងនិយាយខ្មែរពីដើមដល់ចប់ដោយរលូន!")
+    st.write("🎬 មុខងារសម្រាយរឿង: ដាក់វីដេអូ និងបង្កើតសំឡេងនិយាយខ្មែរ រួមទាំងចំណងជើងទាក់ទាញ!")
 
 input_method = st.radio("ជ្រើសរើសប្រភពវីដេអូ៖", ("📁 Upload វីដេអូពីកុំព្យូទ័រ", "🔗 បិទភ្ជាប់លីង (TikTok, YouTube, FB)"))
 
 video_path = None
-thumbnail_path = None
 
 if input_method == "📁 Upload វីដេអូពីកុំព្យូទ័រ":
     uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP4, MOV, AVI):", type=["mp4", "mov", "avi"])
@@ -97,7 +95,6 @@ else:
                 if os.path.exists(downloaded_file_path):
                     os.remove(downloaded_file_path)
                 
-                # កែសម្រួលត្រង់នេះ៖ ប្រើ format: 'best' ដើម្បីកុំឱ្យទាមទារ ffmpeg
                 ydl_opts = {
                     'format': 'best',
                     'outtmpl': downloaded_file_path,
@@ -116,35 +113,23 @@ else:
 
 if video_path and os.path.exists(video_path):
     st.video(video_path)
-    
-    try:
-        cap = cv2.VideoCapture(video_path)
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        
-        if fps > 0 and total_frames > 0:
-            target_frame = int(fps * 2) if total_frames > int(fps * 2) else total_frames // 2
-            cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
-            success, frame = cap.read()
-            
-            if success:
-                thumb_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
-                cv2.imwrite(thumb_temp.name, frame)
-                thumbnail_path = thumb_temp.name
-        cap.release()
-    except Exception as ex:
-        print(f"Error generating thumbnail: {ex}")
 
-    if thumbnail_path and os.path.exists(thumbnail_path):
-        st.subheader("🖼️ រូប Thumbnail ពីវីដេអូ៖")
-        st.image(thumbnail_path, use_container_width=True)
-        with open(thumbnail_path, "rb") as img_file:
-            st.download_button(
-                label="📥 ទាញយក Thumbnail នេះ",
-                data=img_file,
-                file_name="video_thumbnail.jpg",
-                mime="image/jpeg"
-            )
+    # --- មុខងារបង្កើតចំណងជើងវីដេអូ (Catchy Titles) ---
+    st.subheader("📌 បង្កើតចំណងជើងវីដេអូ (Titles) សម្រាប់ Facebook:")
+    if st.button("🔥 ឱ្យ AI ជួយបង្កើតចំណងជើងទាក់ទាញ"):
+        if not api_key:
+            st.warning("សូមបញ្ចូល Google Gemini API Key នៅកន្លែង Settings ខាងឆ្វេងជាមុនសិន!")
+        else:
+            try:
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel(selected_model)
+                with st.spinner("កំពុងបង្កើតចំណងជើងទាក់ទាញ..."):
+                    title_prompt = "សូមបង្កើតចំណងជើងវីដេអូសង្ខេបភាពយន្ត ឬវីដេអូខ្លីចំនួន ៥ ដែលទាក់ទាញខ្លាំង (Catchy & Clickbait ស្រាលៗ) ជាភាសាខ្មែរ សម្រាប់យកไปផុសលើ Facebook Page។"
+                    t_response = model.generate_content(title_prompt)
+                    if t_response and t_response.text:
+                        st.markdown(t_response.text)
+            except Exception as e:
+                st.error(f"មានបញ្ហាក្នុងការបង្កើតចំណងជើង: {e}")
 
     if "Podcast" in app_mode:
         st.subheader("📝 អត្ថបទសម្រាប់ทำ Podcast (បកប្រែពីខ្មែរទៅអង់គ្លេស):")
@@ -235,4 +220,4 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតសំឡេង 
 
         except Exception as e:
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
-                    
+    
