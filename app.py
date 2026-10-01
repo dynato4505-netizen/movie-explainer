@@ -18,7 +18,7 @@ if "movie_script" not in st.session_state:
 
 # --- SIDEBAR (ផ្នែកការកំណត់) ---
 with st.sidebar:
-    st.header("⚙️ ការកំណត់ (Settings)")
+    st.header("⚙️️ ការកំណត់ (Settings)")
     api_key = st.text_input("បញ្ចូល Google Gemini API Key (AQ. ឬ AIzaSy):", type="password")
     
     app_mode = st.radio(
@@ -136,7 +136,7 @@ if video_path and os.path.exists(video_path):
                     if t_response and t_response.text:
                         st.markdown(t_response.text)
             except Exception as e:
-                st.error(f"មានបញ្ហាក្នុងការបង្កើតចំណងជើង: {e}")
+                st.error(f"មានបញ្ហាក្នុងการបង្កើតចំណងជើង: {e}")
 
     if "Podcast" in app_mode:
         st.subheader("📝 អត្ថបទសម្រាប់ทำ Podcast (បកប្រែពីខ្មែរទៅអង់គ្លេស):")
@@ -158,7 +158,7 @@ if video_path and os.path.exists(video_path):
                             st.success("បកប្រែជាអង់គ្លេសបានជោគជ័យ!")
                             st.rerun()
                 except Exception as e:
-                    st.error(f"មានបញ្ហាក្នុងការទាក់ទងទៅ AI Model: {e}")
+                    st.error(f"មានបញ្ហាក្នុងการទាក់ទងទៅ AI Model: {e}")
     else:
         st.subheader("📝 អត្ថបទសាច់រឿង (Script) សម្រាប់បង្កើតសំឡេងខ្មែរ៖")
         script_text = st.text_area("បញ្ចូលអត្ថបទសម្រាយរឿងរបស់អ្នកនៅទីនេះ៖", value=st.session_state.movie_script, height=200)
@@ -172,7 +172,11 @@ if video_path and os.path.exists(video_path):
                     genai.configure(api_key=api_key)
                     model = genai.GenerativeModel(selected_model)
                     with st.spinner(f"កំពុងប្រើប្រាស់ {selected_model} ដើម្បីបង្កើតសាច់រឿង..."):
-                        prompt = "បង្កើតអត្ថបទសម្រាយរឿងជាភាសាខ្មែរប្រកបដោយភាពទាក់ទាញ និងរលូន សម្រាប់យកទៅអានធ្វើសំឡេង Voiceover៖"
+                        prompt = (
+                            "សូមសរសេរអត្ថបទសង្ខេបសាច់រឿង ឬសម្រាយរឿងជាភាសាខ្មែរសម្រាប់យកទៅអានធ្វើ Voiceover សុទ្ធសាធ។ "
+                            "ហាមដាក់សញ្ញាសម្គាល់ឈុតឆាក ពេលវេលា (ឧ. [0:00 - 0:15]) ឬសញ្ញាណែនាំតន្រ្តីផ្សេងៗឡើយ "
+                            "សូមសរសេរជាអត្ថបទសម្រាប់និយាយ (Pure spoken script) សុទ្ធសាធតែក៏បាន ដើម្បីកុំឱ្យមានសំឡេងរំខានពេលបំលែងជាសំឡេង MP3។"
+                        )
                         response = model.generate_content(prompt)
                         if response and response.text:
                             st.session_state.movie_script = response.text
@@ -181,12 +185,26 @@ if video_path and os.path.exists(video_path):
                 except Exception as e:
                     st.error(f"មានបញ្ហាក្នុងការទាក់ទងទៅ AI Model: {e}")
 
+# មុខងារសម្អាតអត្ថបទមិនឱ្យជាប់សញ្ញាឈុតឆាក ឬខ្សែក្បាល (Clean script before text-to-speech)
+def clean_script_for_tts(text):
+    # ដកចេញនូវ Timecodes ឧ. [0:00 - 0:15] ឬ (0:00)
+    text = re.sub(r'\[\d+:\d+.*?\]', '', text)
+    text = re.sub(r'\(\d+:\d+.*?\)', '', text)
+    # ដកចេញនូវសញ្ញាសម្គាល់តន្រ្តី ឬសកម្មភាពក្នុងវង់ក្រចក ឬសញ្ញាផ្កាយ ** 
+    text = re.sub(r'\*\*.*?\*\*', '', text)
+    text = re.sub(r'\*.*?\*', '', text)
+    text = re.sub(r'\[.*?\]', '', text)
+    return text.strip()
+
 async def generate_long_audio(text, voice, output_path):
+    cleaned_text = clean_script_for_tts(text)
     max_chars = 3000
-    text_chunks = [text[i:i+max_chars] for i in range(0, len(text), max_chars)]
+    text_chunks = [cleaned_text[i:i+max_chars] for i in range(0, len(cleaned_text), max_chars)]
     
     temp_files = []
     for idx, chunk in enumerate(text_chunks):
+        if not chunk.strip():
+            continue
         chunk_path = tempfile.NamedTemporaryFile(delete=False, suffix=f'_part{idx}.mp3').name
         communicate = edge_tts.Communicate(chunk, voice)
         await communicate.save(chunk_path)
@@ -208,7 +226,7 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតសំឡេង 
             st.warning("សូមបញ្ចូលអត្ថបទជាមុនសិន!")
         else:
             try:
-                with st.spinner("កំពុងបង្កើតហ្វាយសំឡេង MP3..."):
+                with st.spinner("កំពុងបង្កើតហ្វាយសំឡេង MP3 (ដោយសម្អាតអត្ថបទស្វ័យប្រវត្តិ)..."):
                     audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
                     asyncio.run(generate_long_audio(current_script, selected_voice, audio_path))
 
@@ -234,4 +252,4 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតសំឡេង 
 
             except Exception as e:
                 st.error(f"មានបញ្ហាកើតឡើង: {e}")
-    
+                
