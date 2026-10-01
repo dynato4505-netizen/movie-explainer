@@ -12,10 +12,10 @@ st.set_page_config(page_title="Podcast & Movie Pro", page_icon="🎬", layout="w
 
 # --- INITIALIZE SESSION STATE ---
 if "podcast_script" not in st.session_state:
-    st.session_state.podcast_script = "សួស្តីស្វាគមន៍មកកាន់ឆានែលរបស់យើង ថ្ងៃនេះយើងនឹងនិយាយពី..."
+    st.session_state.podcast_script = ""
 
 if "movie_script" not in st.session_state:
-    st.session_state.movie_script = "សួស្តី! ថ្ងៃនេះយើងនាំអារម្មណ៍មកទស្សនាការសម្រាយរឿង..."
+    st.session_state.movie_script = ""
 
 # --- SIDEBAR (ផ្នែកការកំណត់) ---
 with st.sidebar:
@@ -24,7 +24,7 @@ with st.sidebar:
     
     app_mode = st.radio(
         "ជ្រើសរើសរបៀបប្រើប្រាស់៖",
-        ("🎬 សម្រាយរឿង (Khmer Dubbing)", "🎙️️ បកប្រែវីដេអូជា Podcast (English)")
+        ("🎬 សម្រាយរឿង (Khmer Dubbing)", "🎙 បកប្រែវីដេអូជា Podcast (English)")
     )
     
     model_option = st.selectbox(
@@ -69,6 +69,11 @@ with st.sidebar:
             selected_voice = "km-KH-SreymomNeural"
         else:
             selected_voice = "km-KH-PisethNeural"
+
+    st.markdown("---")
+    st.subheader("🎛️ កែតម្រូវសំឡេងកុំឱ្យដូចរ៉ូបូត")
+    rate_adjustment = st.slider("ល្បឿននិយាយ (Rate %):", min_value=-20, max_value=20, value=0, step=5)
+    pitch_adjustment = st.slider("កម្រិតសំឡេង (Pitch Hz):", min_value=-10, max_value=10, value=0, step=1)
     
     st.info("💡 ដំណើរការដោយរលូនជាមួយ Edge-TTS, Gemini API និង MoviePy។")
 
@@ -122,7 +127,6 @@ else:
 if video_path and os.path.exists(video_path):
     st.video(video_path)
 
-    # --- មុខងារបង្កើតចំណងជើងវីដេអូ (Catchy Titles) ---
     st.subheader("📌 បង្កើតចំណងជើងវីដេអូ (Titles) សម្រាប់ Facebook:")
     if st.button("🔥 ឱ្យ AI ជួយបង្កើតចំណងជើងទាក់ទាញ"):
         if not api_key:
@@ -156,7 +160,7 @@ if video_path and os.path.exists(video_path):
                         response = model.generate_content(prompt)
                         if response and response.text:
                             st.session_state.podcast_script = response.text
-                            st.success("បកប្រែជាអង់គ្លេសได้ជោគជ័យ!")
+                            st.success("បកប្រែជាអង់គ្លេសបានជោគជ័យ!")
                             st.rerun()
                 except Exception as e:
                     st.error(f"មានបញ្ហាក្នុងការទាក់ទងទៅ AI Model: {e}")
@@ -180,7 +184,7 @@ if video_path and os.path.exists(video_path):
                         response = model.generate_content(prompt)
                         if response and response.text:
                             st.session_state.movie_script = response.text
-                            st.success("បង្កើតសាច់រឿងដោយ AI ได้ជោគជ័យ!")
+                            st.success("បង្កើតសាច់រឿងដោយ AI បានជោគជ័យ!")
                             st.rerun()
                 except Exception as e:
                     st.error(f"មានបញ្ហាក្នុងការទាក់ទងទៅ AI Model: {e}")
@@ -194,8 +198,12 @@ def clean_script_for_tts(text):
     text = re.sub(r'\[.*?\]', '', text)
     return text.strip()
 
-async def generate_long_audio(text, voice, output_path):
+async def generate_long_audio(text, voice, output_path, rate, pitch):
     cleaned_text = clean_script_for_tts(text)
+    
+    rate_str = f"{rate:+d}%" if rate != 0 else "+0%"
+    pitch_str = f"{pitch:+d}Hz" if pitch != 0 else "+0Hz"
+
     max_chars = 3000
     text_chunks = [cleaned_text[i:i+max_chars] for i in range(0, len(cleaned_text), max_chars)]
     
@@ -204,7 +212,7 @@ async def generate_long_audio(text, voice, output_path):
         if not chunk.strip():
             continue
         chunk_path = tempfile.NamedTemporaryFile(delete=False, suffix=f'_part{idx}.mp3').name
-        communicate = edge_tts.Communicate(chunk, voice)
+        communicate = edge_tts.Communicate(chunk, voice, rate=rate_str, pitch=pitch_str)
         await communicate.save(chunk_path)
         temp_files.append(chunk_path)
     
@@ -214,41 +222,37 @@ async def generate_long_audio(text, voice, output_path):
                 outfile.write(infile.read())
             os.remove(f_path)
 
-if st.button("🚀 បង្កើតវីដេអូ និងច្របាច់បញ្ចូលសំឡេងស្វ័យប្រវត្តិ"):
+if st.button("🚀 បង្កើតវីដេអូ និងច្របាច់បញ្ចូលសំឡេងស្វ័យប្រវត្តិ (បែបលឿនរហ័ស)"):
     if not video_path:
         st.warning("សូម Upload វីដេអូ ឬទាញយកវីដេអូតាមលីងជាមុនសិន!")
     else:
         current_script = st.session_state.podcast_script if "Podcast" in app_mode else st.session_state.movie_script
         
         if not current_script.strip():
-            st.warning("សូមបញ្ចូលអត្ថបទជាមុនសិន!")
+            st.warning("សូមបញ្ចូលអត្ថបទសាច់រឿងជាមុនសិន!")
         else:
             try:
-                with st.spinner("កំពុងបង្កើតសំឡេង MP3 និងច្របាច់បញ្ចូលជាមួយវីដេអូ..."):
-                    # 1. បង្កើតហ្វាយសំឡេង
+                with st.spinner("កំពុងបង្កើតសំឡេង និង Render វីដេអូក្នុងល្បឿនលឿន..."):
                     audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
-                    asyncio.run(generate_long_audio(current_script, selected_voice, audio_path))
+                    asyncio.run(generate_long_audio(current_script, selected_voice, audio_path, rate_adjustment, pitch_adjustment))
 
-                    # 2. ប្រើ MoviePy ដើម្បីលៃលកទំហំ និងបញ្ចូលសំឡេងចូលវីដេអូ
                     video_clip = VideoFileClip(video_path)
                     audio_clip = AudioFileClip(audio_path)
 
-                    # ប្រសិនបើចង់ឱ្យវីដេអូកាត់ស្មើប្រវែងសំឡេង ឬសំឡេងត្រូវនឹងវីដេអូ
-                    # ទីនេះយើងយកសំឡេងជាគោល រួចកាត់ ឬតវីដេអូឱ្យស្របគ្នា (ឬកំណត់ឱ្យវីដេអូមានប្រវែងប៉ុន្តែសំឡេងរត់ត្រូវគ្នា)
                     final_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
-                    
-                    # បញ្ចូលសំឡេងថ្មី និងជំនួសសំឡេងដើមរបស់វីដេអូ
                     final_clip = video_clip.set_audio(audio_clip)
                     
-                    # ប្រសិនបើសំឡេងវែងជាងវីដេអូ អាចកាត់សំឡេងឱ្យស្មើវីដេអូ ឬទុកតាមហ្នឹង (ទីនេះយើងយកសំឡេងនិងវីដេអូផ្គុំគ្នា)
+                    # បន្ថែម preset='ultrafast' និង threads=4 ដើម្បីឱ្យវា Render វីដេអូលឿនជាងមុនឆ្ងាយ
                     final_clip.write_videofile(
                         final_video_path, 
                         codec='libx264', 
                         audio_codec='aac', 
-                        fps=video_clip.fps if video_clip.fps else 24
+                        fps=video_clip.fps if video_clip.fps else 24,
+                        preset='ultrafast',
+                        threads=4
                     )
 
-                st.success("បង្កើតវីដេអូ និងបញ្ចូលសំឡេងបានជោគជ័យរលូនល្អ!")
+                st.success("បង្កើតវីដេអូបានលឿនរហ័ស និងជោគជ័យរលូនល្អ!")
                 
                 st.subheader("🎬 វីដេអូចុងក្រោយ (Final Video with Dubbed Audio):")
                 st.video(final_video_path)
