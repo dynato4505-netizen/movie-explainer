@@ -9,6 +9,13 @@ import google.generativeai as genai
 
 st.set_page_config(page_title="Podcast & Movie Pro", page_icon="🎬", layout="wide")
 
+# --- INITIALIZE SESSION STATE ---
+if "podcast_script" not in st.session_state:
+    st.session_state.podcast_script = "សួស្តីស្វាគមន៍មកកាន់ឆានែលរបស់យើង ថ្ងៃនេះយើងនឹងនិយាយពី..."
+
+if "movie_script" not in st.session_state:
+    st.session_state.movie_script = "សួស្តី! ថ្ងៃនេះយើងនាំអារម្មណ៍មកទស្សនាការសម្រាយរឿង..."
+
 # --- SIDEBAR (ផ្នែកការកំណត់) ---
 with st.sidebar:
     st.header("⚙️ ការកំណត់ (Settings)")
@@ -124,7 +131,7 @@ if video_path and os.path.exists(video_path):
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel(selected_model)
                 with st.spinner("កំពុងបង្កើតចំណងជើងទាក់ទាញ..."):
-                    title_prompt = "សូមបង្កើតចំណងជើងវីដេអូសង្ខេបភាពយន្ត ឬវីដេអូខ្លីចំនួន ៥ ដែលទាក់ទាញខ្លាំង (Catchy & Clickbait ស្រាលៗ) ជាភាសាខ្មែរ សម្រាប់យកไปផុសលើ Facebook Page។"
+                    title_prompt = "សូមបង្កើតចំណងជើងវីដេអូសង្ខេបភាពយន្ត ឬវីដេអូខ្លីចំនួន ៥ ដែលទាក់ទាញខ្លាំង (Catchy & Clickbait ស្រាលៗ) ជាភាសាខ្មែរ សម្រាប់យកទៅផុសលើ Facebook Page។"
                     t_response = model.generate_content(title_prompt)
                     if t_response and t_response.text:
                         st.markdown(t_response.text)
@@ -133,7 +140,8 @@ if video_path and os.path.exists(video_path):
 
     if "Podcast" in app_mode:
         st.subheader("📝 អត្ថបទសម្រាប់ทำ Podcast (បកប្រែពីខ្មែរទៅអង់គ្លេស):")
-        script_text = st.text_area("បញ្ចូលអត្ថបទខ្មែរ ឬសាច់រឿងរបស់អ្នកទីនេះ៖", "សួស្តីស្វាគមន៍មកកាន់ឆានែលរបស់យើង ថ្ងៃនេះយើងនឹងនិយាយពី...", height=200)
+        script_text = st.text_area("បញ្ចូលអត្ថបទខ្មែរ ឬសាច់រឿងរបស់អ្នកទីនេះ៖", value=st.session_state.podcast_script, height=200)
+        st.session_state.podcast_script = script_text
 
         if st.button("✨ ឱ្យ AI បកប្រែអត្ថបទខ្មែរទៅជា English Podcast"):
             if not api_key:
@@ -143,16 +151,18 @@ if video_path and os.path.exists(video_path):
                     genai.configure(api_key=api_key)
                     model = genai.GenerativeModel(selected_model)
                     with st.spinner(f"កំពុងប្រើប្រាស់ {selected_model} ដើម្បីបកប្រែជាអង់គ្លេស..."):
-                        prompt = f"Translate and refine the following Khmer script into a natural, engaging English podcast script suitable for voiceover:\n\n{script_text}"
+                        prompt = f"Translate and refine the following Khmer script into a natural, engaging English podcast script suitable for voiceover:\n\n{st.session_state.podcast_script}"
                         response = model.generate_content(prompt)
                         if response and response.text:
-                            script_text = response.text
-                            st.success("បកប្រែជាអង់គ្លេសបានជោគជ័យ! សូមពិនិត្យមើលក្នុងប្រអប់ខាងលើ។")
+                            st.session_state.podcast_script = response.text
+                            st.success("បកប្រែជាអង់គ្លេសបានជោគជ័យ!")
+                            st.rerun()
                 except Exception as e:
                     st.error(f"មានបញ្ហាក្នុងការទាក់ទងទៅ AI Model: {e}")
     else:
         st.subheader("📝 អត្ថបទសាច់រឿង (Script) សម្រាប់បង្កើតសំឡេងខ្មែរ៖")
-        script_text = st.text_area("បញ្ចូលអត្ថបទសម្រាយរឿងរបស់អ្នកនៅទីនេះ៖", "សួស្តី! ថ្ងៃនេះយើងនាំអារម្មណ៍មកទស្សនាការសម្រាយរឿង...", height=200)
+        script_text = st.text_area("បញ្ចូលអត្ថបទសម្រាយរឿងរបស់អ្នកនៅទីនេះ៖", value=st.session_state.movie_script, height=200)
+        st.session_state.movie_script = script_text
 
         if st.button("✨ ឱ្យ AI ជួយសរសេរសាច់រឿងសម្រាយ"):
             if not api_key:
@@ -165,8 +175,9 @@ if video_path and os.path.exists(video_path):
                         prompt = "បង្កើតអត្ថបទសម្រាយរឿងជាភាសាខ្មែរប្រកបដោយភាពទាក់ទាញ និងរលូន សម្រាប់យកទៅអានធ្វើសំឡេង Voiceover៖"
                         response = model.generate_content(prompt)
                         if response and response.text:
-                            script_text = response.text
+                            st.session_state.movie_script = response.text
                             st.success("បង្កើតសាច់រឿងដោយ AI បានជោគជ័យ!")
+                            st.rerun()
                 except Exception as e:
                     st.error(f"មានបញ្ហាក្នុងការទាក់ទងទៅ AI Model: {e}")
 
@@ -190,34 +201,37 @@ async def generate_long_audio(text, voice, output_path):
 if st.button("🚀 ចាប់ផ្តើមបង្កើតសំឡេង MP3"):
     if not video_path:
         st.warning("សូម Upload វីដេអូ ឬទាញយកវីដេអូតាមលីងជាមុនសិន!")
-    elif 'script_text' in locals() and not script_text.strip():
-        st.warning("សូមបញ្ចូលអត្ថបទជាមុនសិន!")
     else:
-        try:
-            with st.spinner("កំពុងបង្កើតហ្វាយសំឡេង MP3..."):
-                audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
-                asyncio.run(generate_long_audio(script_text, selected_voice, audio_path))
+        current_script = st.session_state.podcast_script if "Podcast" in app_mode else st.session_state.movie_script
+        
+        if not current_script.strip():
+            st.warning("សូមបញ្ចូលអត្ថបទជាមុនសិន!")
+        else:
+            try:
+                with st.spinner("កំពុងបង្កើតហ្វាយសំឡេង MP3..."):
+                    audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
+                    asyncio.run(generate_long_audio(current_script, selected_voice, audio_path))
 
-            st.success("បង្កើតសំឡេង MP3 បានជោគជ័យរលូនល្អ!")
-            
-            if "Podcast" in app_mode:
-                st.subheader("🔊 សំឡេង English Podcast (MP3):")
-                file_name = "english_podcast_audio.mp3"
-            else:
-                st.subheader("🔊 សំឡេង Khmer Dubbing (MP3):")
-                file_name = "khmer_dubbing_audio.mp3"
+                st.success("បង្កើតសំឡេង MP3 បានជោគជ័យរលូនល្អ!")
+                
+                if "Podcast" in app_mode:
+                    st.subheader("🔊 សំឡេង English Podcast (MP3):")
+                    file_name = "english_podcast_audio.mp3"
+                else:
+                    st.subheader("🔊 សំឡេង Khmer Dubbing (MP3):")
+                    file_name = "khmer_dubbing_audio.mp3"
 
-            st.audio(audio_path)
-            
-            with open(audio_path, "rb") as f:
-                audio_bytes = f.read()
-                st.download_button(
-                    label="📥 ទាញយកហ្វាយ MP3 នេះចូលទូរស័ព្ទ",
-                    data=audio_bytes,
-                    file_name=file_name,
-                    mime="audio/mp3"
-                )
+                st.audio(audio_path)
+                
+                with open(audio_path, "rb") as f:
+                    audio_bytes = f.read()
+                    st.download_button(
+                        label="📥 ទាញយកហ្វាយ MP3 នេះចូលទូរស័ព្ទ",
+                        data=audio_bytes,
+                        file_name=file_name,
+                        mime="audio/mp3"
+                    )
 
-        except Exception as e:
-            st.error(f"មានបញ្ហាកើតឡើង: {e}")
+            except Exception as e:
+                st.error(f"មានបញ្ហាកើតឡើង: {e}")
     
