@@ -31,17 +31,14 @@ with st.sidebar:
         "ជ្រើសរើសម៉ូដែល AI (Gemini):",
         (
             "Gemini 1.5 Flash (Recommended)",
-            "Gemini 1.5 Pro",
-            "Gemini 1.0 Pro"
+            "Gemini 1.5 Pro"
         )
     )
     
     if "1.5 Pro" in model_option:
-        selected_model = "gemini-1.5-pro"
-    elif "1.0 Pro" in model_option:
-        selected_model = "gemini-pro"
+        selected_model = "models/gemini-1.5-pro"
     else:
-        selected_model = "gemini-1.5-flash"
+        selected_model = "models/gemini-1.5-flash"
 
     st.markdown("---")
     
@@ -261,4 +258,4 @@ if st.button("🚀 បង្កើតវីដេអូ និងច្របា
 
             except Exception as e:
                 st.error(f"មានបញ្ហាក្នុងការកែច្នៃវីដេអូ (MoviePy): {e}")
-    
+        
