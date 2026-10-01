@@ -6,6 +6,7 @@ import os
 import yt_dlp
 import re
 import google.generativeai as genai
+from moviepy.editor import VideoFileClip, AudioFileClip
 
 st.set_page_config(page_title="Podcast & Movie Pro", page_icon="🎬", layout="wide")
 
@@ -18,12 +19,12 @@ if "movie_script" not in st.session_state:
 
 # --- SIDEBAR (ផ្នែកការកំណត់) ---
 with st.sidebar:
-    st.header("⚙️️ ការកំណត់ (Settings)")
+    st.header("⚙ ការកំណត់ (Settings)")
     api_key = st.text_input("បញ្ចូល Google Gemini API Key (AQ. ឬ AIzaSy):", type="password")
     
     app_mode = st.radio(
         "ជ្រើសរើសរបៀបប្រើប្រាស់៖",
-        ("🎬 សម្រាយរឿង (Khmer Dubbing)", "🎙️ បកប្រែវីដេអូជា Podcast (English)")
+        ("🎬 សម្រាយរឿង (Khmer Dubbing)", "🎙️️ បកប្រែវីដេអូជា Podcast (English)")
     )
     
     model_option = st.selectbox(
@@ -69,14 +70,14 @@ with st.sidebar:
         else:
             selected_voice = "km-KH-PisethNeural"
     
-    st.info("💡 ដំណើរការដោយរលូនជាមួយ Edge-TTS និង Gemini API។")
+    st.info("💡 ដំណើរការដោយរលូនជាមួយ Edge-TTS, Gemini API និង MoviePy។")
 
 # --- MAIN APP (អេក្រង់មេ) ---
 st.title("🎬 Podcast & Movie Dubbing Pro")
 if "Podcast" in app_mode:
     st.write("🎙️ មុខងារ Podcast: ដាក់វីដេអូ រួចបកប្រែ និងបង្កើតជាសំឡេង Podcast ភាសាអង់គ្លេស!")
 else:
-    st.write("🎬 មុខងារសម្រាយរឿង: ដាក់វីដេអូ និងបង្កើតសំឡេងនិយាយខ្មែរ រួមទាំងចំណងជើងទាក់ទាញ!")
+    st.write("🎬 មុខងារសម្រាយរឿង: ដាក់វីដេអូ និងបង្កើតសំឡេងនិយាយខ្មែរ ព្រមទាំងបញ្ចូលចូលវីដេអូស្វ័យប្រវត្តិ!")
 
 input_method = st.radio("ជ្រើសរើសប្រភពវីដេអូ៖", ("📁 Upload វីដេអូពីកុំព្យូទ័រ", "🔗 បិទភ្ជាប់លីង (TikTok, YouTube, FB)"))
 
@@ -131,19 +132,19 @@ if video_path and os.path.exists(video_path):
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel(selected_model)
                 with st.spinner("កំពុងបង្កើតចំណងជើងទាក់ទាញ..."):
-                    title_prompt = "សូមបង្កើតចំណងជើងវីដេអូសង្ខេបភាពយន្ត ឬវីដេអូខ្លីចំនួន ៥ ដែលទាក់ទាញខ្លាំង (Catchy & Clickbait ស្រាលៗ) ជាភាសាខ្មែរ សម្រាប់យកទៅផុសលើ Facebook Page។"
+                    title_prompt = "សូមបង្កើតចំណងជើងវីដេអូសង្ខេបភាពយន្ត ឬវីដេអូខ្លីចំនួន ៥ ដែលទាក់ទាញខ្លាំង ជាភាសាខ្មែរ សម្រាប់យកទៅផុសលើ Facebook Page។"
                     t_response = model.generate_content(title_prompt)
                     if t_response and t_response.text:
                         st.markdown(t_response.text)
             except Exception as e:
-                st.error(f"មានបញ្ហាក្នុងการបង្កើតចំណងជើង: {e}")
+                st.error(f"មានបញ្ហាក្នុងការបង្កើតចំណងជើង: {e}")
 
     if "Podcast" in app_mode:
-        st.subheader("📝 អត្ថបទសម្រាប់ทำ Podcast (បកប្រែពីខ្មែរទៅអង់គ្លេស):")
-        script_text = st.text_area("បញ្ចូលអត្ថបទខ្មែរ ឬសាច់រឿងរបស់អ្នកទីនេះ៖", value=st.session_state.podcast_script, height=200)
+        st.subheader("📝 អត្ថបទសម្រាប់ทำ Podcast:")
+        script_text = st.text_area("បញ្ចូលអត្ថបទរបស់អ្នកទីនេះ៖", value=st.session_state.podcast_script, height=200)
         st.session_state.podcast_script = script_text
 
-        if st.button("✨ ឱ្យ AI បកប្រែអត្ថបទខ្មែរទៅជា English Podcast"):
+        if st.button("✨ ឱ្យ AI បកប្រែអត្ថបទទៅជា English Podcast"):
             if not api_key:
                 st.warning("សូមបញ្ចូល Google Gemini API Key នៅកន្លែង Settings ខាងឆ្វេងជាមុនសិន!")
             else:
@@ -155,10 +156,10 @@ if video_path and os.path.exists(video_path):
                         response = model.generate_content(prompt)
                         if response and response.text:
                             st.session_state.podcast_script = response.text
-                            st.success("បកប្រែជាអង់គ្លេសបានជោគជ័យ!")
+                            st.success("បកប្រែជាអង់គ្លេសได้ជោគជ័យ!")
                             st.rerun()
                 except Exception as e:
-                    st.error(f"មានបញ្ហាក្នុងการទាក់ទងទៅ AI Model: {e}")
+                    st.error(f"មានបញ្ហាក្នុងការទាក់ទងទៅ AI Model: {e}")
     else:
         st.subheader("📝 អត្ថបទសាច់រឿង (Script) សម្រាប់បង្កើតសំឡេងខ្មែរ៖")
         script_text = st.text_area("បញ្ចូលអត្ថបទសម្រាយរឿងរបស់អ្នកនៅទីនេះ៖", value=st.session_state.movie_script, height=200)
@@ -174,23 +175,20 @@ if video_path and os.path.exists(video_path):
                     with st.spinner(f"កំពុងប្រើប្រាស់ {selected_model} ដើម្បីបង្កើតសាច់រឿង..."):
                         prompt = (
                             "សូមសរសេរអត្ថបទសង្ខេបសាច់រឿង ឬសម្រាយរឿងជាភាសាខ្មែរសម្រាប់យកទៅអានធ្វើ Voiceover សុទ្ធសាធ។ "
-                            "ហាមដាក់សញ្ញាសម្គាល់ឈុតឆាក ពេលវេលា (ឧ. [0:00 - 0:15]) ឬសញ្ញាណែនាំតន្រ្តីផ្សេងៗឡើយ "
-                            "សូមសរសេរជាអត្ថបទសម្រាប់និយាយ (Pure spoken script) សុទ្ធសាធតែក៏បាន ដើម្បីកុំឱ្យមានសំឡេងរំខានពេលបំលែងជាសំឡេង MP3។"
+                            "ហាមដាក់សញ្ញាសម្គាល់ឈុតឆាក ពេលវេលា (ឧ. [0:00 - 0:15]) ឬសញ្ញាណែនាំតន្រ្តីផ្សេងៗឡើយ។"
                         )
                         response = model.generate_content(prompt)
                         if response and response.text:
                             st.session_state.movie_script = response.text
-                            st.success("បង្កើតសាច់រឿងដោយ AI បានជោគជ័យ!")
+                            st.success("បង្កើតសាច់រឿងដោយ AI ได้ជោគជ័យ!")
                             st.rerun()
                 except Exception as e:
                     st.error(f"មានបញ្ហាក្នុងការទាក់ទងទៅ AI Model: {e}")
 
-# មុខងារសម្អាតអត្ថបទមិនឱ្យជាប់សញ្ញាឈុតឆាក ឬខ្សែក្បាល (Clean script before text-to-speech)
+# មុខងារសម្អាតអត្ថបទ
 def clean_script_for_tts(text):
-    # ដកចេញនូវ Timecodes ឧ. [0:00 - 0:15] ឬ (0:00)
     text = re.sub(r'\[\d+:\d+.*?\]', '', text)
     text = re.sub(r'\(\d+:\d+.*?\)', '', text)
-    # ដកចេញនូវសញ្ញាសម្គាល់តន្រ្តី ឬសកម្មភាពក្នុងវង់ក្រចក ឬសញ្ញាផ្កាយ ** 
     text = re.sub(r'\*\*.*?\*\*', '', text)
     text = re.sub(r'\*.*?\*', '', text)
     text = re.sub(r'\[.*?\]', '', text)
@@ -216,7 +214,7 @@ async def generate_long_audio(text, voice, output_path):
                 outfile.write(infile.read())
             os.remove(f_path)
 
-if st.button("🚀 ចាប់ផ្តើមបង្កើតសំឡេង MP3"):
+if st.button("🚀 បង្កើតវីដេអូ និងច្របាច់បញ្ចូលសំឡេងស្វ័យប្រវត្តិ"):
     if not video_path:
         st.warning("សូម Upload វីដេអូ ឬទាញយកវីដេអូតាមលីងជាមុនសិន!")
     else:
@@ -226,30 +224,44 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតសំឡេង 
             st.warning("សូមបញ្ចូលអត្ថបទជាមុនសិន!")
         else:
             try:
-                with st.spinner("កំពុងបង្កើតហ្វាយសំឡេង MP3 (ដោយសម្អាតអត្ថបទស្វ័យប្រវត្តិ)..."):
+                with st.spinner("កំពុងបង្កើតសំឡេង MP3 និងច្របាច់បញ្ចូលជាមួយវីដេអូ..."):
+                    # 1. បង្កើតហ្វាយសំឡេង
                     audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
                     asyncio.run(generate_long_audio(current_script, selected_voice, audio_path))
 
-                st.success("បង្កើតសំឡេង MP3 បានជោគជ័យរលូនល្អ!")
-                
-                if "Podcast" in app_mode:
-                    st.subheader("🔊 សំឡេង English Podcast (MP3):")
-                    file_name = "english_podcast_audio.mp3"
-                else:
-                    st.subheader("🔊 សំឡេង Khmer Dubbing (MP3):")
-                    file_name = "khmer_dubbing_audio.mp3"
+                    # 2. ប្រើ MoviePy ដើម្បីលៃលកទំហំ និងបញ្ចូលសំឡេងចូលវីដេអូ
+                    video_clip = VideoFileClip(video_path)
+                    audio_clip = AudioFileClip(audio_path)
 
-                st.audio(audio_path)
+                    # ប្រសិនបើចង់ឱ្យវីដេអូកាត់ស្មើប្រវែងសំឡេង ឬសំឡេងត្រូវនឹងវីដេអូ
+                    # ទីនេះយើងយកសំឡេងជាគោល រួចកាត់ ឬតវីដេអូឱ្យស្របគ្នា (ឬកំណត់ឱ្យវីដេអូមានប្រវែងប៉ុន្តែសំឡេងរត់ត្រូវគ្នា)
+                    final_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
+                    
+                    # បញ្ចូលសំឡេងថ្មី និងជំនួសសំឡេងដើមរបស់វីដេអូ
+                    final_clip = video_clip.set_audio(audio_clip)
+                    
+                    # ប្រសិនបើសំឡេងវែងជាងវីដេអូ អាចកាត់សំឡេងឱ្យស្មើវីដេអូ ឬទុកតាមហ្នឹង (ទីនេះយើងយកសំឡេងនិងវីដេអូផ្គុំគ្នា)
+                    final_clip.write_videofile(
+                        final_video_path, 
+                        codec='libx264', 
+                        audio_codec='aac', 
+                        fps=video_clip.fps if video_clip.fps else 24
+                    )
+
+                st.success("បង្កើតវីដេអូ និងបញ្ចូលសំឡេងបានជោគជ័យរលូនល្អ!")
                 
-                with open(audio_path, "rb") as f:
-                    audio_bytes = f.read()
+                st.subheader("🎬 វីដេអូចុងក្រោយ (Final Video with Dubbed Audio):")
+                st.video(final_video_path)
+                
+                with open(final_video_path, "rb") as f:
+                    video_bytes = f.read()
                     st.download_button(
-                        label="📥 ទាញយកហ្វាយ MP3 នេះចូលទូរស័ព្ទ",
-                        data=audio_bytes,
-                        file_name=file_name,
-                        mime="audio/mp3"
+                        label="📥 ទាញយកវីដេអូពេញលេញ (មានសំឡេងស្រេច)",
+                        data=video_bytes,
+                        file_name="final_dubbed_video.mp4",
+                        mime="video/mp4"
                     )
 
             except Exception as e:
-                st.error(f"មានបញ្ហាកើតឡើង: {e}")
-                
+                st.error(f"មានបញ្ហាក្នុងការកែច្នៃវីដេអូ (MoviePy): {e}")
+    
