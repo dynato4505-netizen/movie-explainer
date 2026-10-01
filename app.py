@@ -30,24 +30,18 @@ with st.sidebar:
     model_option = st.selectbox(
         "ជ្រើសរើសម៉ូដែល AI (Gemini):",
         (
-            "Gemini 3.7 Flash (Fastest/New)",
-            "Gemini 3 Flash",
-            "Gemini 3.1 Pro",
-            "Gemini 2.5 Flash (Stable)",
-            "Gemini 2.5 Pro"
+            "Gemini 1.5 Flash (Recommended)",
+            "Gemini 1.5 Pro",
+            "Gemini 1.0 Pro"
         )
     )
     
-    if "3.7" in model_option:
-        selected_model = "gemini-3.7-flash"
-    elif "3 Flash" in model_option:
-        selected_model = "gemini-3-flash"
-    elif "3.1 Pro" in model_option:
-        selected_model = "gemini-3.1-pro"
-    elif "2.5 Pro" in model_option:
-        selected_model = "gemini-2.5-pro"
+    if "1.5 Pro" in model_option:
+        selected_model = "gemini-1.5-pro"
+    elif "1.0 Pro" in model_option:
+        selected_model = "gemini-pro"
     else:
-        selected_model = "gemini-2.5-flash"
+        selected_model = "gemini-1.5-flash"
 
     st.markdown("---")
     
@@ -242,7 +236,6 @@ if st.button("🚀 បង្កើតវីដេអូ និងច្របា
                     final_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
                     final_clip = video_clip.set_audio(audio_clip)
                     
-                    # បន្ថែម preset='ultrafast' និង threads=4 ដើម្បីឱ្យវា Render វីដេអូលឿនជាងមុនឆ្ងាយ
                     final_clip.write_videofile(
                         final_video_path, 
                         codec='libx264', 
