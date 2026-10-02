@@ -20,9 +20,9 @@ with st.sidebar:
     api_key = st.text_input("បញ្ចូល Google Gemini API Key:", type="password")
     app_mode = st.radio("ជ្រើសរើសរបៀបប្រើប្រាស់៖", ("🎬 សម្រាយរឿង (Khmer Dubbing)", "🎙 បកប្រែវីដេអូជា Podcast (English)"))
     
-    # ប្រើម៉ូដែលស្តង់ដារប្រាកដប្រជា មិនបាច់ខ្លាច Error
-    selected_model = "gemini-pro"
-    st.info("🤖 កំពុងប្រើប្រាស់ម៉ូដែល៖ Gemini Pro")
+    # ប្រើម៉ូដែល gemini-1.5-flash ស្របតាម Version ថ្មីក្នុង requirements.txt
+    selected_model = "gemini-1.5-flash"
+    st.info("🤖 កំពុងប្រើប្រាស់ម៉ូដែល៖ Gemini 1.5 Flash")
     st.markdown("---")
     
     if "Podcast" in app_mode:
@@ -121,3 +121,4 @@ if st.button("🚀 បង្កើតវីដេអូ និងបញ្ចូ
             st.video(final_path)
             with open(final_path, "rb") as f:
                 st.download_button("📥 ទាញយកវីដេអូ", f.read(), file_name="final_video.mp4", mime="video/mp4")
+                
