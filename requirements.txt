@@ -1,10 +1,6 @@
-streamlit
-google-generativeai
+fastapi
+uvicorn
 edge-tts
 yt-dlp
-opencv-python-headless
-numpy
-Pillow
-requests
-nest-asyncio
 moviepy
+pydantic
