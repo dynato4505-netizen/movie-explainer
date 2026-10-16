@@ -1,124 +1,84 @@
 import streamlit as st
+from google import genai
 import asyncio
 import edge_tts
-import tempfile
 import os
-import yt_dlp
-import re
-import google.generativeai as genai
-from moviepy.editor import VideoFileClip, AudioFileClip
+import tempfile
 
-st.set_page_config(page_title="Podcast & Movie Pro", page_icon="🎬", layout="wide")
+st.set_page_config(page_title="Movie Subtitle & Dubbing App")
 
-if "podcast_script" not in st.session_state:
-    st.session_state.podcast_script = ""
-if "movie_script" not in st.session_state:
-    st.session_state.movie_script = ""
+st.title("🎬 AI Movie Subtitle & Dubbing Pro")
+st.write("Upload វីដេអូខ្លី ដើម្បីឱ្យ AI បកប្រែជា Subtitle ខ្មែរ និងបង្កើតសំឡេង Dubbing (ស្រី/ប្រុស)!")
 
-with st.sidebar:
-    st.header("⚙ ការកំណត់ (Settings)")
-    api_key = st.text_input("បញ្ចូល Google Gemini API Key:", type="password")
-    app_mode = st.radio("ជ្រើសរើសរបៀបប្រើប្រាស់៖", ("🎬 សម្រាយរឿង (Khmer Dubbing)", "🎙 បកប្រែវីដេអូជា Podcast (English)"))
-    
-    # ប្រើម៉ូដែល gemini-1.5-flash ស្របតាម Version ថ្មីក្នុង requirements.txt
-    selected_model = "gemini-1.5-flash"
-    st.info("🤖 កំពុងប្រើប្រាស់ម៉ូដែល៖ Gemini 1.5 Flash")
-    st.markdown("---")
-    
-    if "Podcast" in app_mode:
-        voice_option = st.selectbox("ជ្រើសរើសសំឡេង Podcast (English):", ("Aria (ស្រី)", "Christopher (ប្រុស)"))
-        selected_voice = "en-US-AriaNeural" if "Aria" in voice_option else "en-US-ChristopherNeural"
+api_key = st.text_input("បញ្ចូល Gemini API Key របស់អ្នក:", type="password")
+
+# ជម្រើសសំឡេងប្រុស ឬស្រី
+voice_choice = st.selectbox(
+    "ជ្រើសរើសសំឡេង Dubbing:",
+    ("ស្រី (Sreymom)", "ប្រុស (Piseth)")
+)
+
+voice_map = {
+    "ស្រី (Sreymom)": "km-KH-SreymomNeural",
+    "ប្រុស (Piseth)": "km-KH-PisethNeural"
+}
+selected_voice = voice_map[voice_choice]
+
+uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP4, MOV):", type=["mp4", "mov", "avi"])
+
+if uploaded_file is not None:
+    st.video(uploaded_file)
+
+# Function សម្រាប់ generate សំឡេងជាមួយ edge-tts asynchronously
+async def generate_edge_tts(text, voice, output_path):
+    communicate = edge_tts.Communicate(text, voice)
+    await communicate.save(output_path)
+
+if st.button("ចាប់ផ្តើមបកប្រែ Subtitle និងសំឡេង 🚀"):
+    if not api_key:
+        st.error("សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
+    elif uploaded_file is None:
+        st.warning("សូម Upload វីដេអូជាមុនសិន!")
     else:
-        voice_option = st.selectbox("ជ្រើសរើសសំឡេង Dubbing (Khmer):", ("Sreymom (ស្រី)", "Piseth (ប្រុស)"))
-        selected_voice = "km-KH-SreymomNeural" if "Sreymom" in voice_option else "km-KH-PisethNeural"
-
-    st.markdown("---")
-    rate_adjustment = st.slider("ល្បឿននិយាយ (Rate %):", -20, 20, 0, 5)
-    pitch_adjustment = st.slider("កម្រិតសំឡេង (Pitch Hz):", -10, 10, 0, 1)
-
-st.title("🎬 Podcast & Movie Dubbing Pro")
-input_method = st.radio("ជ្រើសរើសប្រភពវីដេអូ៖", ("📁 Upload វីដេអូ", "🔗 បិទភ្ជាប់លីង (YouTube, TikTok, FB)"))
-video_path = None
-
-if input_method == "📁 Upload វីដេអូ":
-    uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP4):", type=["mp4", "mov", "avi"])
-    if uploaded_file:
-        tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
-        tfile.write(uploaded_file.read())
-        video_path = tfile.name
-else:
-    raw_video_url = st.text_input("សូមបិទភ្ជាប់ (Paste) លីងវីដេអូ៖")
-    if raw_video_url and st.button("⬇️ ទាញយកវីដេអូ"):
-        with st.spinner("កំពុងទាញយក..."):
+        with st.spinner("កំពុងវិភាគវីដេអូ និងបង្កើត Subtitle ខ្មែរ..."):
             try:
-                downloaded_file_path = "downloaded_video.mp4"
-                if os.path.exists(downloaded_file_path): os.remove(downloaded_file_path)
-                ydl_opts = {'format': 'best', 'outtmpl': downloaded_file_path, 'noplaylist': True}
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([raw_video_url.strip()])
-                if os.path.exists(downloaded_file_path):
-                    video_path = downloaded_file_path
-                    st.success("ទាញយកវីដេអូបានជោគជ័យ!")
+                # បង្កើត Temp File សម្រាប់វីដេអូ
+                tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+                tfile.write(uploaded_file.read())
+                video_path = tfile.name
+
+                client = genai.Client(api_key=api_key)
+
+                st.info("កំពុងបញ្ជូនវីដេអូទៅកាន់ Gemini AI...")
+                video_file = client.files.upload(file=video_path)
+
+                prompt = "សូមទស្សនាវីដេអូនេះ ស្ដាប់សំឡេង និងសរសេរបកប្រែសាច់រឿងជាភាសាខ្មែរ ចែកចេញជាឃ្លាៗ (Subtitle) សម្រាប់យកទៅដាក់ក្នុង CapCut។"
+                
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=[video_file, prompt],
+                )
+                
+                sub_text = response.text
+                st.subheader("📝 អត្ថបទ Subtitle ភាសាខ្មែរ (សម្រាប់ Copy ដាក់ CapCut):")
+                st.text_area("Copy Subtitle ទីនេះ:", sub_text, height=200)
+                
+                st.info(f"កំពុងបង្កើតសំឡេង Dubbing ({voice_choice})...")
+                
+                # បង្កើត Temp File សម្រាប់ Audio
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as audio_tf:
+                    audio_path = audio_tf.name
+
+                # Run edge-tts
+                asyncio.run(generate_edge_tts(sub_text, selected_voice, audio_path))
+                
+                st.subheader("🔊 សំឡេងអានខ្មែរ (Audio Dubbing):")
+                st.audio(audio_path)
+                
+                # លុប Video File ចោលវិញកុំឱ្យស្ទះម៉ាស៊ីន
+                if os.path.exists(video_path):
+                    os.remove(video_path)
+                
             except Exception as e:
-                st.error(f"មិនអាចទាញយកបានទេ៖ {e}")
-
-if video_path and os.path.exists(video_path):
-    st.video(video_path)
-    
-    if "Podcast" in app_mode:
-        st.session_state.podcast_script = st.text_area("អត្ថបទ Podcast:", value=st.session_state.podcast_script, height=150)
-        if st.button("✨ បកប្រែជាអង់គ្លេស"):
-            if api_key:
-                genai.configure(api_key=api_key)
-                model = genai.GenerativeModel(selected_model)
-                resp = model.generate_content(f"Translate into natural English podcast script:\n\n{st.session_state.podcast_script}")
-                st.session_state.podcast_script = resp.text
-                st.rerun()
-            else:
-                st.warning("សូមបញ្ចូល API Key ជាមុនសិន!")
-    else:
-        st.session_state.movie_script = st.text_area("សាច់រឿងសម្រាយ:", value=st.session_state.movie_script, height=150)
-        if st.button("✨ ឱ្យ AI សរសេរសាច់រឿង"):
-            if api_key:
-                genai.configure(api_key=api_key)
-                model = genai.GenerativeModel(selected_model)
-                resp = model.generate_content("សូមសរសេរអត្ថបទសម្រាយរឿងជាភាសាខ្មែរសម្រាប់ធ្វើ Voiceover សុទ្ធសាធ គ្មានដាក់ពេលវេលាឡើយ។")
-                st.session_state.movie_script = resp.text
-                st.rerun()
-            else:
-                st.warning("សូមបញ្ចូល API Key ជាមុនសិន!")
-
-def clean_script(text):
-    text = re.sub(r'\[\d+:\d+.*?\]', '', text)
-    return text.strip()
-
-async def gen_audio(text, voice, out_path, rate, pitch):
-    cleaned = clean_script(text)
-    rate_str = f"{rate:+d}%" if rate != 0 else "+0%"
-    pitch_str = f"{pitch:+d}Hz" if pitch != 0 else "+0Hz"
-    comm = edge_tts.Communicate(cleaned, voice, rate=rate_str, pitch=pitch_str)
-    await comm.save(out_path)
-
-if st.button("🚀 បង្កើតវីដេអូ និងបញ្ចូលសំឡេងស្វ័យប្រវត្តិ"):
-    if not video_path:
-        st.warning("សូមដាក់វីដេអូជាមុនសិន!")
-    else:
-        cur_script = st.session_state.podcast_script if "Podcast" in app_mode else st.session_state.movie_script
-        if not cur_script.strip():
-            st.warning("សូមបញ្ចូលអត្ថបទសិន!")
-        else:
-            with st.spinner("កំពុងដំណើរការបង្កើតសំឡេងនិងវីដេអូ..."):
-                audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
-                asyncio.run(gen_audio(cur_script, selected_voice, audio_path, rate_adjustment, pitch_adjustment))
-                
-                v_clip = VideoFileClip(video_path)
-                a_clip = AudioFileClip(audio_path)
-                final_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
-                final_clip = v_clip.set_audio(a_clip)
-                final_clip.write_videofile(final_path, codec='libx264', audio_codec='aac', fps=v_clip.fps or 24, preset='ultrafast')
-                
-            st.success("ជោគជ័យរលូនល្អ!")
-            st.video(final_path)
-            with open(final_path, "rb") as f:
-                st.download_button("📥 ទាញយកវីដេអូ", f.read(), file_name="final_video.mp4", mime="video/mp4")
+                st.error(f"មានបញ្ហាកើតឡើង: {e}")
                 
