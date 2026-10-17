@@ -54,8 +54,9 @@ if st.button("ចាប់ផ្តើមបកប្រែ Subtitle និង�
 
                 prompt = "សូមទស្សនាវីដេអូនេះ ស្ដាប់សំឡេង និងសរសេរបកប្រែសាច់រឿងជាភាសាខ្មែរ ចែកចេញជាឃ្លាៗ (Subtitle) សម្រាប់យកទៅដាក់ក្នុង CapCut។"
                 
+                # បានដូរមកប្រើ gemini-3.8-flash តាមការណែនាំរបស់ System Error
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-3.8-flash',
                     contents=[video_file, prompt],
                 )
                 
@@ -81,4 +82,4 @@ if st.button("ចាប់ផ្តើមបកប្រែ Subtitle និង�
                 
             except Exception as e:
                 st.error(f"មានបញ្ហាកើតឡើង: {e}")
-                
+            
