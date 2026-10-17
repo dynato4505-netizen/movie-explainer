@@ -4,11 +4,12 @@ import asyncio
 import edge_tts
 import os
 import tempfile
+import cv2  # សម្រាប់ទាញយករយៈពេលវីដេអូ
 
 st.set_page_config(page_title="AI Movie Explainer & Dubbing Pro")
 
 st.title("🎬 AI Movie Explainer & Dubbing Pro")
-st.write("បកប្រែសាច់រឿងវីដេអូជាសំឡេងរៀបរាប់ធម្មជាតិ (Voiceover) ជាមួយសំឡេងស្រី/ប្រុស និង Subtitle ស្អាតៗ!")
+st.write("បកប្រែសាច់រឿង និងបង្កើតសំឡេងអានឱ្យដើរស្មើគ្នាបេះបិទនឹងរយៈពេលវីដេអូដើម!")
 
 api_key = st.text_input("បញ្ចូល Gemini API Key របស់អ្នក:", type="password")
 
@@ -29,35 +30,53 @@ uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP
 if uploaded_file is not None:
     st.video(uploaded_file)
 
+# Function សម្រាប់ទាញយករយៈពេលវីដេអូជាវិនាទី
+def get_video_duration(video_path):
+    cap = cv2.VideoCapture(video_path)
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap.release()
+    if fps > 0:
+        return frame_count / fps
+    return 0
+
 # Function សម្រាប់ generate សំឡេងជាមួយ edge-tts
 async def generate_edge_tts(text, voice, output_path):
     communicate = edge_tts.Communicate(text, voice)
     await communicate.save(output_path)
 
-if st.button("ចាប់ផ្តើមបកប្រែ និងបង្កើតសំឡេងរឿង 🚀"):
+if st.button("ចាប់ផ្តើមបកប្រែ និងបង្កើតសំឡេងស្មើវីដេអូ 🚀"):
     if not api_key:
         st.error("សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
     elif uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
     else:
-        with st.spinner("កំពុងវិភាគវីដេអូ និងច្នៃសាច់រឿងឱ្យដូចមនុស្សនិយាយធម្មជាតិ..."):
+        with st.spinner("កំពុងគណនារយៈពេលវីដេអូ និងបកប្រែសាច់រឿង..."):
             try:
                 # បង្កើត Temp File សម្រាប់វីដេអូ
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                 tfile.write(uploaded_file.read())
                 video_path = tfile.name
 
+                # គណនារយៈពេលវីដេអូជាវិនាទី
+                duration_sec = get_video_duration(video_path)
+                st.info(f"⏱️ រយៈពេលវីដេអូដើម: {duration_sec:.1f} វិនាទី")
+
+                # គណនាចំនួនពាក្យប៉ាន់ស្មայն (មនុស្សធម្មតាអានប្រហែល ២.៥ ទៅ ៣ពាក្យក្នុង១វិនាទី)
+                target_words = int(duration_sec * 2.5)
+
                 client = genai.Client(api_key=api_key)
 
                 st.info("កំពុងបញ្ជូនវីដេអូទៅកាន់ Gemini AI...")
                 video_file = client.files.upload(file=video_path)
 
-                # Prompt កែច្នៃថ្មី ដើម្បីឱ្យអត្ថបទអានស្ដាប់ទៅដូចមនុស្សពិត និងលុបលេខ 00:00 ចោលដាច់ខាត
+                # Prompt បញ្ជា AI ឱ្យសរសេរអត្ថបទឱ្យត្រូវចំនួនពាក្យ និងសមាមាត្រនឹងវិនាទីវីដេអូ
                 prompt = (
-                    "សូមទស្សនាវីដេអូនេះ រួចសរសេរបកប្រែ និងច្នៃសាច់រឿងជាភាសាខ្មែរក្នុងទម្រង់ជាស្គ្រីបសម្រាប់អានរឿង (Voiceover script) "
-                    "ដែលមានលក្ខណៈរលូន ទន់ភ្លន់ ដូចមនុស្សពិតកំពុងនិយាយเล่าរឿងប្រាប់គេ មិនមែនបកប្រែចំៗបែបមនុស្សយន្តទេ។ "
-                    "**ចំណាំសំខាន់៖** ហាមដាក់ដាច់ខាតនូវលេខកូដម៉ោង ពេលវេលា (ឧទាហរណ៍ 00:00) ឬសញ្ញាចែក Timecode ណាមួយឡើយ! "
-                    "សូមផ្ដល់តែអត្ថបទសាច់រឿងសុទ្ធសាធ តភ្ជាប់គ្នាពីរោះៗ ងាយស្រួលយកទៅប្រើជាមួយកម្មវិធីអានសំឡេង។"
+                    f"សូមទស្សនាវីដេអូនោះ រួចសរសេរបកប្រែសាច់រឿងជាភាសាខ្មែរក្នុងទម្រង់ជាស្គ្រីបអានរឿង (Voiceover)។ "
+                    f"**លក្ខខណ្ឌតឹងរឹង៖** អត្ថបទសរុបត្រូវតែមានប្រវែងប្រហែល {target_words} ពាក្យប៉ុណ្ណោះ "
+                    f"(ព្រោះវីដេអូមានរយៈពេលត្រឹមតែ {duration_sec:.1f} វិនាទី ដើម្បីពេលយកទៅអានទៅគឺដើរស្មើគ្នាច្បាស់លាស់ មិនខ្លីពេក មិនវែងពេក)។ "
+                    "និយាយចំសាច់រឿងសំខាន់ៗ ពីរោះរលូន ធម្មជាតិ។ "
+                    "**ហាមដាច់ខាត៖** ដាក់លេខកូដម៉ោង ពេលវេលា (00:00) ឬសញ្ញា Timecode ណាមួយឡើយ!"
                 )
                 
                 response = client.models.generate_content(
@@ -67,10 +86,10 @@ if st.button("ចាប់ផ្តើមបកប្រែ និងបង្�
                 
                 sub_text = response.text
                 
-                st.subheader("📝 សាច់រឿង (ស្គ្រីបសម្រាប់អាន):")
-                st.text_area("Copy Text ទីនេះ:", sub_text, height=200)
+                st.subheader("📝 សាច់រឿង (ស្គ្រីបត្រូវតាមរយៈពេលវីដេអូ):")
+                st.text_area("Copy Text ទីនេះ:", sub_text, height=150)
                 
-                st.info(f"កំពុងបង្កើតសំឡេងអានរឿងធម្មជាតិ ({voice_choice})...")
+                st.info(f"កំពុងបង្កើតសំឡេងអាន ({voice_choice})...")
                 
                 # បង្កើត Temp File សម្រាប់ Audio
                 with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as audio_tf:
@@ -79,13 +98,13 @@ if st.button("ចាប់ផ្តើមបកប្រែ និងបង្�
                 # Run edge-tts
                 asyncio.run(generate_edge_tts(sub_text, selected_voice, audio_path))
                 
-                st.subheader("🔊 សំឡេងអានសាច់រឿងធម្មជាតិ (Audio Dubbing):")
+                st.subheader("🔊 សំឡេងអានសាច់រឿង (Audio Dubbing):")
                 st.audio(audio_path)
                 
-                # លុប Video File ចោលវិញកុំឱ្យស្ទះម៉ាស៊ីន
+                # លុប Video File ចོលវិញកុំឱ្យស្ទះម៉ាស៊ីន
                 if os.path.exists(video_path):
                     os.remove(video_path)
                 
             except Exception as e:
                 st.error(f"មានបញ្ហាកើតឡើង: {e}")
-    
+                
