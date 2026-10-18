@@ -6,8 +6,7 @@ import os
 import tempfile
 import re
 import cv2
-from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, AudioClip
-import numpy as np
+from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip
 
 st.set_page_config(page_title="AI Smart Cinematic Dubbing Pro", layout="centered")
 
@@ -124,7 +123,6 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងឆ្លាត
                         temp_audio_files = []
                         audio_clips_to_composite = []
                         
-                        # 1. បង្កើតសំឡេង AI តាមម៉ោងនីមួយៗ
                         for item in dialogues:
                             chunk_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
                             temp_audio_files.append(chunk_audio_path)
@@ -136,21 +134,27 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងឆ្លាត
                                 audio_clip = audio_clip.set_start(item["start"])
                                 audio_clips_to_composite.append(audio_clip)
 
-                        # 2. បច្ចេកទេស Smart Ducking៖ កាត់បន្ថយសំឡេងដើម (Mute/Ducking) ចំពេលតួអង្គនិយាយ
                         if video_clip.audio is not None:
-                            original_audio = video_clip.audio
+                            # វិធីសាស្ត្រជំនួសដែលមានសុវត្ថិភាពខ្ពស់៖ កាត់បន្ថយសំឡេងដើមឱ្យនៅស្ងាត់ស្អាត (volumex(0)) តាមចន្លោះម៉ោងនីមួយៗដោយផ្ទាល់
+                            subclips_audio = []
+                            last_end = 0.0
+                            orig_audio = video_clip.audio
                             
-                            # បង្កើត Function សម្រាប់បញ្ចុះសំឡេងដើមឱ្យនៅ 0 (ស្ងាត់) ត្រង់ចំណុចដែលមានតួអង្គនិយាយ
-                            def duck_audio(get_frame, t):
-                                frame = get_frame(t)
-                                # ពិនិត្យមើលថាតើពេលវេលាបច្ចុប្បន្ន (t) ស្ថិតក្នុងចន្លោះពេលតួអង្គនិយាយដែរឬទេ
-                                for d in dialogues:
-                                    if d["start"] <= t <= d["end"]:
-                                        return np.array([0.0, 0.0]) # ផ្ដាច់សំឡេងដើមចោលទាំងស្រុងត្រង់កន្លែងនិយាយ
-                                return frame # រក្សាសំឡេងភ្លេងដើមធម្មតាពេលអត់មានអ្នកនិយាយ
+                            for d in dialogues:
+                                if d["start"] > last_end:
+                                    # យកសំឡេងដើមช่วงที่គ្មានអ្នកនិយាយ (រក្សាភ្លេង BGM)
+                                    subclips_audio.append(orig_audio.subclip(last_end, d["start"]))
+                                last_end = max(last_end, d["end"])
                                 
-                            smart_bgm = original_audio.fl(duck_audio)
-                            all_audios = [smart_bgm] + audio_clips_to_composite
+                            if last_end < video_clip.duration:
+                                subclips_audio.append(orig_audio.subclip(last_end, video_clip.duration))
+                                
+                            if subclips_audio:
+                                from moviepy.editor import concatenate_audioclips
+                                clean_bgm = concatenate_audioclips(subclips_audio)
+                                all_audios = [clean_bgm] + audio_clips_to_composite
+                            else:
+                                all_audios = audio_clips_to_composite
                         else:
                             all_audios = audio_clips_to_composite
 
@@ -163,7 +167,7 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងឆ្លាត
                         video_clip.close()
                         final_video.close()
                         
-                        st.success("🎉 ការដាប់ប៊ីងឆ្លាតវៃ (Smart Ducking) បានសម្រេចជោគជ័យ ១០០%!")
+                        st.success("🎉 ការដាប់ប៊ីងឆ្លាតវៃបានសម្រេចជោគជ័យ ១០០%!")
                         st.subheader("🎬 វីដេអូចុងក្រោយ:")
                         st.video(output_video_path)
                         
