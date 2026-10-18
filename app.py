@@ -6,11 +6,12 @@ import os
 import tempfile
 import re
 import cv2
+from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip
 
-st.set_page_config(page_title="AI Safe Dialogue Dubbing (MP3)", layout="centered")
+st.set_page_config(page_title="AI Cinematic Dubbing & Audio Mixing Pro", layout="centered")
 
-st.title("🎬 AI Safe Dialogue Dubbing (MP3 Output)")
-st.write("បកប្រែចំឃ្លាតួអង្គ **ត្រូវម៉ោងវីដេអូ និងထုတ်ជា File សំឡេង MP3** សម្រាប់យកទៅប្រើប្រាស់ដោយសុវត្ថិភាព (គ្មាន Error)!")
+st.title("🎬 AI Cinematic Dubbing & Audio Mixing Pro")
+st.write("បកប្រែចំឃ្លាតួអង្គ **លាយសំឡេងភ្លេង/សំឡេងវ៉ៃគ្នាដើមជាមួយសំឡេងអាន AI** មិនបាំងគ្នា! រក្សាសំឡេងសកម្មភាពដើមល្វើយៗអមជាមួយសំឡេងអានខ្មែរ។")
 
 api_key = st.text_input("បញ្ចូល Gemini API Key របស់អ្នក:", type="password")
 
@@ -50,23 +51,44 @@ async def generate_edge_tts(text, voice, output_path):
     communicate = edge_tts.Communicate(text, voice)
     await communicate.save(output_path)
 
+# Function សម្រាប់លាយសំឡេងដើម (BGM/Fighting sounds) និងសំឡេងអាន AI ចូលគ្នា (Audio Mixing)
+def mix_audio_and_video(video_path, tts_audio_path, output_path):
+    video_clip = VideoFileClip(video_path)
+    duration = video_clip.duration
+    tts_audio = AudioFileClip(tts_audio_path)
+    
+    if video_clip.audio is not None:
+        # ទាញយកសំឡេងដើមពីវីដេអូ ហើយបន្ថយសំឡេងវាឱ្យនៅត្រឹម 25% (0.25) ដើម្បីកុំឱ្យបាំងសំឡេងអានខ្មែរ
+        original_audio = video_clip.audio.volumex(0.25)
+        # កែសម្រួលសំឡេងអាន AI ឱ្យខ្លាំងច្បាស់នៅកម្រិត 100% (1.0)
+        tts_audio_vol = tts_audio.volumex(1.0)
+        # លាយសំឡេងទាំងពីរចូលគ្នា (CompositeAudioClip)
+        final_audio = CompositeAudioClip([original_audio, tts_audio_vol]).set_duration(duration)
+    else:
+        final_audio = tts_audio.set_duration(duration)
+        
+    final_video = video_clip.set_audio(final_audio)
+    final_video.write_videofile(output_path, codec="libx264", audio_codec="aac", fps=video_clip.fps)
+    
+    video_clip.close()
+    tts_audio.close()
+    final_video.close()
+
 if uploaded_file is not None:
     st.video(uploaded_file)
 
-if st.button("ចាប់ផ្តើមបកប្រែ និងទាញយកសំឡេង MP3 🚀"):
+if st.button("ចាប់ផ្តើមបកប្រែ លាយសំឡេង និងបង្កើតវីដេអូ 🚀"):
     if not api_key:
         st.error("សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
     elif uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
     else:
-        with st.spinner("កំពុងវិភាគវីដេអូ និងបង្កើតសំឡេង MP3..."):
+        with st.spinner("កំពុងវិភាគ បកប្រែ និងធ្វើការលាយសំឡេងវីដេអូ (Audio Mixing)..."):
             try:
-                # បង្កើត Temp File សម្រាប់វីដេអូ
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                 tfile.write(uploaded_file.read())
                 video_path = tfile.name
 
-                # គណនារយៈពេលវីដេអូជាវិនាទី
                 duration_sec = get_video_duration(video_path)
                 
                 if duration_sec > 900:
@@ -95,41 +117,42 @@ if st.button("ចាប់ផ្តើមបកប្រែ និងទាញ�
                     
                     raw_text = response.text
                     
-                    st.subheader("📝 អត្ថបទបកប្រែចំប្រយោគតួអង្គ (មាន Timecode):")
+                    st.subheader("📝 អត្ថបទបកប្រែចំប្រយោគតួអង្គ:")
                     st.text_area("Copy Text ទីនេះ:", raw_text, height=200)
                     
-                    # លុប Timecode និងការពិពណ៌នាចេញ មុនយកទៅធ្វើ Audio
                     clean_text = clean_text_for_tts(raw_text)
                     
-                    st.info(f"កំពុងបង្កើតសំឡេងអាន MP3 ({voice_choice})...")
+                    st.info(f"កំពុងបង្កើតសំឡេងអាន និងលាយបញ្ចូលគ្នាជាមួយសំឡេងសកម្មភាពក្នុងរឿង ({voice_choice})...")
                     
-                    # បង្កើត Temp File សម្រាប់ Audio
                     with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as audio_tf:
                         audio_path = audio_tf.name
+
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as output_tf:
+                        output_video_path = output_tf.name
 
                     # 1. បង្កើតសំឡេង MP3 ជាមួយ edge-tts
                     asyncio.run(generate_edge_tts(clean_text, selected_voice, audio_path))
                     
-                    st.success("🎉 ការបង្កើតសំឡេង MP3 បានសម្រេចជោគជ័យ!")
+                    # 2. លាយសំឡេងដើម (BGM/Fighting sounds) និងសំឡេងអាន AI ចូលគ្នាជាមួយវីដេអូ
+                    mix_audio_and_video(video_path, audio_path, output_video_path)
                     
-                    # ຫຼິ້ນសំឡេងស្តាប់សាកល្បង
-                    st.subheader("🔊 សំឡេងអាន MP3:")
-                    st.audio(audio_path)
+                    st.success("🎉 ការលាយសំឡេង និងបង្កើតវីដេអូបានសម្រេចជោគជ័យ!")
                     
-                    # ប៊ូតុង Download File MP3
-                    with open(audio_path, "rb") as file:
+                    st.subheader("🎬 វីដេអូចុងក្រោយ (ມີសំឡេងវ៉ៃគ្នា/ភ្លេងដើមល្វើយៗ + សំឡេងអានខ្មែរ):")
+                    st.video(output_video_path)
+                    
+                    with open(output_video_path, "rb") as file:
                         st.download_button(
-                            label="📥 ទាញយកសំឡេង MP3 (Download Audio)",
+                            label="📥 ទាញយកវីដេអូ (Download Mixed Video)",
                             data=file,
-                            file_name="dubbed_audio.mp3",
-                            mime="audio/mpeg"
+                            file_name="mixed_dubbed_video.mp4",
+                            mime="video/mp4"
                         )
                 
-                # លុប File Temp ចោលវិញ
                 for p in [video_path, audio_path]:
                     if os.path.exists(p):
                         os.remove(p)
                 
             except Exception as e:
                 st.error(f"មានបញ្ហាកើតឡើង: {e}")
-                
+    
