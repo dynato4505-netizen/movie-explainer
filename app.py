@@ -6,12 +6,11 @@ import os
 import tempfile
 import re
 import cv2
-from moviepy.editor import VideoFileClip, AudioFileClip
 
-st.set_page_config(page_title="AI Auto-Dubbing & Video Merger Pro", layout="centered")
+st.set_page_config(page_title="AI Safe Dialogue Dubbing (MP3)", layout="centered")
 
-st.title("🎬 AI Auto-Dubbing & Video Merger Pro")
-st.write("បកប្រែចំឃ្លាតួអង្គ **បញ្ចូលសំឡេងថ្មីចូលវីដេអូដោយស្វ័យប្រវត្តិ** (ខុសម៉ោងក្រោម ១០វិនាទី)!")
+st.title("🎬 AI Safe Dialogue Dubbing (MP3 Output)")
+st.write("បកប្រែចំឃ្លាតួអង្គ **ត្រូវម៉ោងវីដេអូ និងထုတ်ជា File សំឡេង MP3** សម្រាប់យកទៅប្រើប្រាស់ដោយសុវត្ថិភាព (គ្មាន Error)!")
 
 api_key = st.text_input("បញ្ចូល Gemini API Key របស់អ្នក:", type="password")
 
@@ -51,31 +50,16 @@ async def generate_edge_tts(text, voice, output_path):
     communicate = edge_tts.Communicate(text, voice)
     await communicate.save(output_path)
 
-# Function សម្រាប់បញ្ចូលសំឡេងថ្មីចូលទៅក្នុងវីដេអូដើម
-def merge_audio_video(video_path, audio_path, output_path):
-    video_clip = VideoFileClip(video_path)
-    audio_clip = AudioFileClip(audio_path)
-    
-    # កំណត់សំឡេងថ្មីចូលវីដេអូ (ប្រសិនបើវីដេអូដើមมีសំឡេង អាចជំនួស ឬលុបសំឡេងចាស់ចេញ)
-    final_clip = video_clip.set_audio(audio_clip)
-    
-    # Export ចេញជាវីដេអូថ្មី
-    final_clip.write_videofile(output_path, codec="libx264", audio_codec="aac", fps=video_clip.fps)
-    
-    video_clip.close()
-    audio_clip.close()
-    final_clip.close()
-
 if uploaded_file is not None:
     st.video(uploaded_file)
 
-if st.button("ចាប់ផ្តើមបកប្រែ និងបញ្ចូលសំឡេងចូលវីដេអូ 🚀"):
+if st.button("ចាប់ផ្តើមបកប្រែ និងទាញយកសំឡេង MP3 🚀"):
     if not api_key:
         st.error("សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
     elif uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
     else:
-        with st.spinner("កំពុងវិភាគ បកប្រែ និងបញ្ចូលសំឡេងចូលវីដេអូ..."):
+        with st.spinner("កំពុងវិភាគវីដេអូ និងបង្កើតសំឡេង MP3..."):
             try:
                 # បង្កើត Temp File សម្រាប់វីដេអូ
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
@@ -111,40 +95,34 @@ if st.button("ចាប់ផ្តើមបកប្រែ និងបញ្�
                     
                     raw_text = response.text
                     
-                    st.subheader("📝 អត្ថបទបកប្រែចំប្រយោគតួអង្គ:")
+                    st.subheader("📝 អត្ថបទបកប្រែចំប្រយោគតួអង្គ (មាន Timecode):")
                     st.text_area("Copy Text ទីនេះ:", raw_text, height=200)
                     
                     # លុប Timecode និងការពិពណ៌នាចេញ មុនយកទៅធ្វើ Audio
                     clean_text = clean_text_for_tts(raw_text)
                     
-                    st.info(f"កំពុងបង្កើតសំឡេងអាន និងបញ្ចូលចូលវីដេអូ ({voice_choice})...")
+                    st.info(f"កំពុងបង្កើតសំឡេងអាន MP3 ({voice_choice})...")
                     
-                    # បង្កើត Temp File សម្រាប់ Audio និង Output Video
+                    # បង្កើត Temp File សម្រាប់ Audio
                     with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as audio_tf:
                         audio_path = audio_tf.name
 
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as output_tf:
-                        output_video_path = output_tf.name
-
-                    # 1. បង្កើតសំឡេង MP3
+                    # 1. បង្កើតសំឡេង MP3 ជាមួយ edge-tts
                     asyncio.run(generate_edge_tts(clean_text, selected_voice, audio_path))
                     
-                    # 2. បញ្ចូលសំឡេងថ្មីចូលទៅក្នុងវីដេអូដើម
-                    merge_audio_video(video_path, audio_path, output_video_path)
+                    st.success("🎉 ការបង្កើតសំឡេង MP3 បានសម្រេចជោគជ័យ!")
                     
-                    st.success("🎉 ការបញ្ចូលសំឡេងទៅក្នុងវីដេអូបានសម្រេចជោគជ័យ!")
+                    # ຫຼິ້ນសំឡេងស្តាប់សាកល្បង
+                    st.subheader("🔊 សំឡេងអាន MP3:")
+                    st.audio(audio_path)
                     
-                    # បង្ហាញវីដេអូចុងក្រោយដែលបាន Dubbing រួច
-                    st.subheader("🎬 វីដេអូថ្មីដែលបានដាក់សំឡេងបកប្រែរួច:")
-                    st.video(output_video_path)
-                    
-                    # ប៊ូតុង Download វីដេអូ
-                    with open(output_video_path, "rb") as file:
+                    # ប៊ូតុង Download File MP3
+                    with open(audio_path, "rb") as file:
                         st.download_button(
-                            label="📥 ទាញយកវីដេអូនោះ (Download Dubbed Video)",
+                            label="📥 ទាញយកសំឡេង MP3 (Download Audio)",
                             data=file,
-                            file_name="dubbed_video_output.mp4",
-                            mime="video/mp4"
+                            file_name="dubbed_audio.mp3",
+                            mime="audio/mpeg"
                         )
                 
                 # លុប File Temp ចោលវិញ
@@ -154,4 +132,4 @@ if st.button("ចាប់ផ្តើមបកប្រែ និងបញ្�
                 
             except Exception as e:
                 st.error(f"មានបញ្ហាកើតឡើង: {e}")
-                        
+                
