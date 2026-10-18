@@ -5,12 +5,13 @@ import edge_tts
 import os
 import tempfile
 import re
-import cv2  # សម្រាប់ទាញយករយៈពេលវីដេអូ
+import cv2
+from moviepy.editor import VideoFileClip, AudioFileClip
 
-st.set_page_config(page_title="AI Full-Length Dialogue Dubbing", layout="centered")
+st.set_page_config(page_title="AI Auto-Dubbing & Video Merger Pro", layout="centered")
 
-st.title("🎬 AI Full-Length Dialogue Dubbing")
-st.write("បកប្រែចំឃ្លាតួអង្គ **ពេញលេញពេញប្រវែងវីដេអូ មិនខ្លីពេក និងមិនវែងពេក**!")
+st.title("🎬 AI Auto-Dubbing & Video Merger Pro")
+st.write("បកប្រែចំឃ្លាតួអង្គ **បញ្ចូលសំឡេងថ្មីចូលវីដេអូដោយស្វ័យប្រវត្តិ** (ខុសម៉ោងក្រោម ១០វិនាទី)!")
 
 api_key = st.text_input("បញ្ចូល Gemini API Key របស់អ្នក:", type="password")
 
@@ -50,16 +51,31 @@ async def generate_edge_tts(text, voice, output_path):
     communicate = edge_tts.Communicate(text, voice)
     await communicate.save(output_path)
 
+# Function សម្រាប់បញ្ចូលសំឡេងថ្មីចូលទៅក្នុងវីដេអូដើម
+def merge_audio_video(video_path, audio_path, output_path):
+    video_clip = VideoFileClip(video_path)
+    audio_clip = AudioFileClip(audio_path)
+    
+    # កំណត់សំឡេងថ្មីចូលវីដេអូ (ប្រសិនបើវីដេអូដើមมีសំឡេង អាចជំនួស ឬលុបសំឡេងចាស់ចេញ)
+    final_clip = video_clip.set_audio(audio_clip)
+    
+    # Export ចេញជាវីដេអូថ្មី
+    final_clip.write_videofile(output_path, codec="libx264", audio_codec="aac", fps=video_clip.fps)
+    
+    video_clip.close()
+    audio_clip.close()
+    final_clip.close()
+
 if uploaded_file is not None:
     st.video(uploaded_file)
 
-if st.button("ចាប់ផ្តើមបកប្រែចំឃ្លា (ពេញប្រវែងវីដេអូ) 🚀"):
+if st.button("ចាប់ផ្តើមបកប្រែ និងបញ្ចូលសំឡេងចូលវីដេអូ 🚀"):
     if not api_key:
         st.error("សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
     elif uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
     else:
-        with st.spinner("កំពុងវិភាគវីដេអូ និងរៀបចំអត្ថបទពេញលេញគ្រប់ឈុតឆាក..."):
+        with st.spinner("កំពុងវិភាគ បកប្រែ និងបញ្ចូលសំឡេងចូលវីដេអូ..."):
             try:
                 # បង្កើត Temp File សម្រាប់វីដេអូ
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
@@ -72,24 +88,20 @@ if st.button("ចាប់ផ្តើមបកប្រែចំឃ្លា (�
                 if duration_sec > 900:
                     st.error("❌ វីដេអូរបស់អ្នកវែងពេក! សូមជ្រើសរើសវីដេអូដែលមានរយៈពេល ១៥នាទីចុះក្រោម។")
                 else:
-                    # កែសម្រួលកម្រិតពាក្យឱ្យសមស្របពេញលេញ (កុំឱ្យតិចពេក រួមទាំងដកឃ្លាឱ្យបានសមសួន)
-                    max_words = int(duration_sec * 2.8)
-                    
-                    st.info(f"⏱️ រយៈពេលវីដេអូពិតប្រាកដ: {duration_sec/60:.2f} នាទី ({duration_sec:.1f} វិនាទី) | កំណត់ទំហំអត្ថបទ: ~{max_words} ពាក្យ")
+                    target_words = int(duration_sec * 2.5)
+                    st.info(f"⏱️ រយៈពេលវីដេអូពិតប្រាកដ: {duration_sec/60:.2f} នាទី ({duration_sec:.1f} វិនាទី)")
 
                     client = genai.Client(api_key=api_key)
                     st.info("កំពុងបញ្ជូនវីដេអូទៅកាន់ Gemini AI...")
                     
                     video_file = client.files.upload(file=video_path)
 
-                    # Prompt កែសម្រួលថ្មី៖ ពង្រីកអត្ថបទបកប្រែឱ្យមានប្រវែងពេញលេញពេញម៉ោងវីដេអូ មិនឱ្យខើចខ្លី
                     prompt = (
                         "អ្នកគឺជាអ្នកបកប្រែប្រយោគតួអង្គភាពយន្តអាជីព។ "
-                        "សូមទស្សនាវីដេអូនេះដោយយកចិត្តទុកដាក់តាំងពីដើមរហូតដល់ចប់ រួចបកប្រែ **เฉพาะ ឃ្លាប្រយោគដែលតួអង្គនិយាយ** ជាភាសាខ្មែរឱ្យបាន **ពេញលេញគ្រប់ឈុតឆាកទាំងអស់**។ "
-                        "**លក្ខខណ្ឌតឹងរឹង៖** "
-                        "1. ហាមបន្សល់ទុកចន្លោះប្រហោង ឬកាត់បន្ថយឃ្លាតួអង្គសំខាន់ៗចេញឡើយ។ អត្ថបទសរុបត្រូវមានប្រវែងសមល្មមប្រហែល " + str(max_words) + " ពាក្យ ដើម្បីបំពេញគ្រប់រយៈពេល " + f"{duration_sec:.1f}" + " វិនាទីនៃវីដេអូដោយរលូនល្អ។ "
-                        "2. ហាមសម្រាយរឿង និងហាមពិពណ៌នាឈុតឆាកក្នុងវង់ក្រចក (Pure Dialogue Only)។ "
-                        "3. រក្សាកូដពេលវេលា [MM:SS - MM:SS] ទុកនៅខាងមុខប្រយោគនីមួយៗឱ្យបានគ្រប់គ្រាន់តាមលំដាប់វីដេអូ។"
+                        "សូមទស្សនាវីដេអូនេះតាំងពីដើមរហូតដល់ចប់ រួចបកប្រែ **เฉพาะ ឃ្លាប្រយោគដែលតួអង្គនិយាយ** ជាភាសាខ្មែរ "
+                        "ឱ្យមានប្រវែងគ្រប់គ្រាន់ប្រហែល " + str(target_words) + " ពាក្យ ដើម្បីឱ្យស្មើម៉ោងជាមួយវីដេអូ។ "
+                        "ហាមសម្រាយរឿង និងហាមពិពណ៌នាឈុតឆាកក្នុងវង់ក្រចក (Pure Dialogue Only)។ "
+                        "រក្សាកូដពេលវេលា [MM:SS - MM:SS] ទុកនៅខាងមុខប្រយោគនីមួយៗ។"
                     )
                     
                     response = client.models.generate_content(
@@ -99,29 +111,47 @@ if st.button("ចាប់ផ្តើមបកប្រែចំឃ្លា (�
                     
                     raw_text = response.text
                     
-                    # បង្ហាញអត្ថបទបកប្រែចំឃ្លា
-                    st.subheader("📝 អត្ថបទបកប្រែចំប្រយោគតួអង្គ (ពេញប្រវែង):")
-                    st.text_area("Copy Text ទីនេះ:", raw_text, height=250)
+                    st.subheader("📝 អត្ថបទបកប្រែចំប្រយោគតួអង្គ:")
+                    st.text_area("Copy Text ទីនេះ:", raw_text, height=200)
                     
                     # លុប Timecode និងការពិពណ៌នាចេញ មុនយកទៅធ្វើ Audio
                     clean_text = clean_text_for_tts(raw_text)
                     
-                    st.info(f"កំពុងបង្កើតសំឡេងអានពេញប្រវែងសមាមាត្រនឹងវីដេអូ ({voice_choice})...")
+                    st.info(f"កំពុងបង្កើតសំឡេងអាន និងបញ្ចូលចូលវីដេអូ ({voice_choice})...")
                     
-                    # បង្កើត Temp File សម្រាប់ Audio
+                    # បង្កើត Temp File សម្រាប់ Audio និង Output Video
                     with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as audio_tf:
                         audio_path = audio_tf.name
 
-                    # Run edge-tts ជាមួយអត្ថបទពេញលេញ
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as output_tf:
+                        output_video_path = output_tf.name
+
+                    # 1. បង្កើតសំឡេង MP3
                     asyncio.run(generate_edge_tts(clean_text, selected_voice, audio_path))
                     
-                    st.subheader("🔊 សំឡេងអានប្រយោគតួអង្គ (ពេញប្រវែងវីដេអូ):")
-                    st.audio(audio_path)
+                    # 2. បញ្ចូលសំឡេងថ្មីចូលទៅក្នុងវីដេអូដើម
+                    merge_audio_video(video_path, audio_path, output_video_path)
+                    
+                    st.success("🎉 ការបញ្ចូលសំឡេងទៅក្នុងវីដេអូបានសម្រេចជោគជ័យ!")
+                    
+                    # បង្ហាញវីដេអូចុងក្រោយដែលបាន Dubbing រួច
+                    st.subheader("🎬 វីដេអូថ្មីដែលបានដាក់សំឡេងបកប្រែរួច:")
+                    st.video(output_video_path)
+                    
+                    # ប៊ូតុង Download វីដេអូ
+                    with open(output_video_path, "rb") as file:
+                        st.download_button(
+                            label="📥 ទាញយកវីដេអូនោះ (Download Dubbed Video)",
+                            data=file,
+                            file_name="dubbed_video_output.mp4",
+                            mime="video/mp4"
+                        )
                 
-                # លុប Video File ចោលវិញកុំឱ្យស្ទះម៉ាស៊ីន
-                if os.path.exists(video_path):
-                    os.remove(video_path)
+                # លុប File Temp ចោលវិញ
+                for p in [video_path, audio_path]:
+                    if os.path.exists(p):
+                        os.remove(p)
                 
             except Exception as e:
                 st.error(f"មានបញ្ហាកើតឡើង: {e}")
-                
+                        
