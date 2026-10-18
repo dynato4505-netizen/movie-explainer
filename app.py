@@ -6,16 +6,15 @@ import os
 import tempfile
 import re
 import cv2
-from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip
+from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, AudioClip
 
-st.set_page_config(page_title="AI Cinematic Dubbing & Audio Mixing Pro", layout="centered")
+st.set_page_config(page_title="AI Cinematic Precise Dubbing Pro", layout="centered")
 
-st.title("🎬 AI Cinematic Dubbing & Audio Mixing Pro")
-st.write("បកប្រែចំឃ្លាតួអង្គ **លាយសំឡេងភ្លេង/សំឡេងវ៉ៃគ្នាដើមជាមួយសំឡេងអាន AI** មិនបាំងគ្នា! រក្សាសំឡេងសកម្មភាពដើមល្វើយៗអមជាមួយសំឡេងអានខ្មែរ។")
+st.title("🎬 AI Cinematic Precise Dubbing Pro")
+st.write("បកប្រែចំប្រយោគ ដាក់សំឡេង AI ត្រូវចំម៉ោងតួអង្គនិយាយពិតប្រាកដ (Timestamp Sync) និងបិទសំឡេងចិនដើមដាច់ស្រេច!")
 
 api_key = st.text_input("បញ្ចូល Gemini API Key របស់អ្នក:", type="password")
 
-# ជម្រើសសំឡេងប្រុស ឬស្រី
 voice_choice = st.selectbox(
     "ជ្រើសរើសសំឡេង Dubbing:",
     ("ស្រី (Sreymom)", "ប្រុស (Piseth)")
@@ -29,7 +28,6 @@ selected_voice = voice_map[voice_choice]
 
 uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP4, MOV - ក្រោម ១៥នាទី):", type=["mp4", "mov", "avi"])
 
-# Function សម្រាប់ទាញយករយៈពេលវីដេអូជាវិនាទី
 def get_video_duration(video_path):
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -39,51 +37,50 @@ def get_video_duration(video_path):
         return frame_count / fps
     return 0
 
-# Function សម្រាប់លុប Timecode និងការពិពណ៌នាចេញទាំងស្រុង មុនយកទៅធ្វើ Audio
-def clean_text_for_tts(text):
-    cleaned = re.sub(r'\[\d{2}:\d{2}\s*-\s*\d{2}:\d{2}\]|\d{2}:\d{2}', '', text)
-    cleaned = re.sub(r'\(.*?\)|\[.*?\]|\*.*?\*', '', cleaned)
-    cleaned = cleaned.replace('—', ' ').replace('\n', ' ')
-    return cleaned.strip()
-
-# Function សម្រាប់ generate សំឡេងជាមួយ edge-tts
 async def generate_edge_tts(text, voice, output_path):
     communicate = edge_tts.Communicate(text, voice)
     await communicate.save(output_path)
 
-# Function សម្រាប់លាយសំឡេងដើម (BGM/Fighting sounds) និងសំឡេងអាន AI ចូលគ្នា (Audio Mixing)
-def mix_audio_and_video(video_path, tts_audio_path, output_path):
-    video_clip = VideoFileClip(video_path)
-    duration = video_clip.duration
-    tts_audio = AudioFileClip(tts_audio_path)
-    
-    if video_clip.audio is not None:
-        # ទាញយកសំឡេងដើមពីវីដេអូ ហើយបន្ថយសំឡេងវាឱ្យនៅត្រឹម 25% (0.25) ដើម្បីកុំឱ្យបាំងសំឡេងអានខ្មែរ
-        original_audio = video_clip.audio.volumex(0.25)
-        # កែសម្រួលសំឡេងអាន AI ឱ្យខ្លាំងច្បាស់នៅកម្រិត 100% (1.0)
-        tts_audio_vol = tts_audio.volumex(1.0)
-        # លាយសំឡេងទាំងពីរចូលគ្នា (CompositeAudioClip)
-        final_audio = CompositeAudioClip([original_audio, tts_audio_vol]).set_duration(duration)
-    else:
-        final_audio = tts_audio.set_duration(duration)
+def time_to_seconds(time_str):
+    parts = time_str.split(':')
+    if len(parts) == 2:
+        return int(parts[0]) * 60 + float(parts[1])
+    elif len(parts) == 3:
+        return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+    return 0.0
+
+def parse_timestamps(text):
+    pattern = r'\[\s*(\d{1,2}:\d{2})\s*(?:-\s*(\d{1,2}:\d{2}))?\s*\]\s*(.*)'
+    matches = re.findall(pattern, text)
+    dialogues = []
+    for match in matches:
+        start_str = match[0]
+        end_str = match[1] if match[1] else match[0]
+        content = match[2].strip()
         
-    final_video = video_clip.set_audio(final_audio)
-    final_video.write_videofile(output_path, codec="libx264", audio_codec="aac", fps=video_clip.fps)
-    
-    video_clip.close()
-    tts_audio.close()
-    final_video.close()
+        start_sec = time_to_seconds(start_str)
+        end_sec = time_to_seconds(end_str)
+        if end_sec <= start_sec:
+            end_sec = start_sec + 3.0 # Default duration if not specified
+            
+        if content:
+            dialogues.append({
+                "start": start_sec,
+                "end": end_sec,
+                "text": content
+            })
+    return dialogues
 
 if uploaded_file is not None:
     st.video(uploaded_file)
 
-if st.button("ចាប់ផ្តើមបកប្រែ លាយសំឡេង និងបង្កើតវីដេអូ 🚀"):
+if st.button("ចាប់ផ្តើមបកប្រែចំម៉ោង និងលាយវីដេអូអាជីព 🚀"):
     if not api_key:
         st.error("សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
     elif uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
     else:
-        with st.spinner("កំពុងវិភាគ បកប្រែ និងធ្វើការលាយសំឡេងវីដេអូ (Audio Mixing)..."):
+        with st.spinner("កំពុងវិភាគវីដេអូ និងទាញយកកូដពេលវេលាប្រយោគតួអង្គ..."):
             try:
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                 tfile.write(uploaded_file.read())
@@ -94,20 +91,16 @@ if st.button("ចាប់ផ្តើមបកប្រែ លាយសំឡ�
                 if duration_sec > 900:
                     st.error("❌ វីដេអូរបស់អ្នកវែងពេក! សូមជ្រើសរើសវីដេអូដែលមានរយៈពេល ១៥នាទីចុះក្រោម។")
                 else:
-                    target_words = int(duration_sec * 2.5)
-                    st.info(f"⏱️ រយៈពេលវីដេអូពិតប្រាកដ: {duration_sec/60:.2f} នាទី ({duration_sec:.1f} វិនាទី)")
-
                     client = genai.Client(api_key=api_key)
-                    st.info("កំពុងបញ្ជូនវីដេអូទៅកាន់ Gemini AI...")
-                    
                     video_file = client.files.upload(file=video_path)
 
                     prompt = (
                         "អ្នកគឺជាអ្នកបកប្រែប្រយោគតួអង្គភាពយន្តអាជីព។ "
-                        "សូមទស្សនាវីដេអូនេះតាំងពីដើមរហូតដល់ចប់ រួចបកប្រែ **เฉพาะ ឃ្លាប្រយោគដែលតួអង្គនិយាយ** ជាភាសាខ្មែរ "
-                        "ឱ្យមានប្រវែងគ្រប់គ្រាន់ប្រហែល " + str(target_words) + " ពាក្យ ដើម្បីឱ្យស្មើម៉ោងជាមួយវីដេអូ។ "
-                        "ហាមសម្រាយរឿង និងហាមពិពណ៌នាឈុតឆាកក្នុងវង់ក្រចក (Pure Dialogue Only)។ "
-                        "រក្សាកូដពេលវេលា [MM:SS - MM:SS] ទុកនៅខាងមុខប្រយោគនីមួយៗ។"
+                        "សូមទស្សនាវីដេអូនេះ រួចកំណត់ពេលវេលា [MM:SS - MM:SS] ឱ្យបានច្បាស់លាស់សម្រាប់រាល់ឃ្លាប្រយោគដែលតួអង្គនិយាយ "
+                        "ហើយបកប្រែមកជាភាសាខ្មែរតាមទម្រង់នេះដាច់ខាត៖\n"
+                        "[00:05 - 00:08] សួស្ដីអ្នកទាំងអស់គ្នា\n"
+                        "[00:12 - 00:15] ระយោគទីពីរ...\n"
+                        "ហាមសរសេរខុសពីទម្រង់កូដពេលវេលានេះ និងហាមពន្យល់រឿងក្រៅពីប្រយោគតួអង្គនិយាយ។"
                     )
                     
                     response = client.models.generate_content(
@@ -116,43 +109,69 @@ if st.button("ចាប់ផ្តើមបកប្រែ លាយសំឡ�
                     )
                     
                     raw_text = response.text
+                    st.subheader("📝 កូដពេលវេលា និងអត្ថបទបកប្រែ:")
+                    st.text_area("Timestamps & Text:", raw_text, height=200)
                     
-                    st.subheader("📝 អត្ថបទបកប្រែចំប្រយោគតួអង្គ:")
-                    st.text_area("Copy Text ទីនេះ:", raw_text, height=200)
+                    dialogues = parse_timestamps(raw_text)
                     
-                    clean_text = clean_text_for_tts(raw_text)
-                    
-                    st.info(f"កំពុងបង្កើតសំឡេងអាន និងលាយបញ្ចូលគ្នាជាមួយសំឡេងសកម្មភាពក្នុងរឿង ({voice_choice})...")
-                    
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as audio_tf:
-                        audio_path = audio_tf.name
+                    if not dialogues:
+                        st.error("❌ រកមិនឃើញកូដពេលវេលាត្រឹមត្រូវទេ។ សូមព្យាយាមម្ដងទៀត។")
+                    else:
+                        st.info(f"រកឃើញប្រយោគចំនួន {len(dialogues)} កំពុងបង្កើតសំឡេង AI តាមម៉ោងនីមួយៗ...")
+                        
+                        audio_clips_to_composite = []
+                        temp_audio_files = []
+                        
+                        for i, item in enumerate(dialogues):
+                            chunk_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
+                            temp_audio_files.append(chunk_audio_path)
+                            
+                            # Generate TTS for each line
+                            asyncio.run(generate_edge_tts(item["text"], selected_voice, chunk_audio_path))
+                            
+                            if os.path.exists(chunk_audio_path) and os.path.getsize(chunk_audio_path) > 0:
+                                audio_clip = AudioFileClip(chunk_audio_path)
+                                # កំណត់ម៉ោងចាប់ផ្ដើមឱ្យចំពេលតួអង្គនិយាយ (Start time)
+                                audio_clip = audio_clip.set_start(item["start"])
+                                audio_clips_to_composite.append(audio_clip)
 
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as output_tf:
-                        output_video_path = output_tf.name
+                        # Load original video
+                        video_clip = VideoFileClip(video_path)
+                        
+                        # បិទសំឡេងចិនដើមចោល ១០០% យកតែសំឡេងភ្លេងល្វើយៗ ឬបិទទាំងស្រុង តាមតម្រូវការ (ទីនេះដាក់ភ្លេងដើម 15%)
+                        if video_clip.audio is not None:
+                            bgm_audio = video_clip.audio.volumex(0.15)
+                            all_audios = [bgm_audio] + audio_clips_to_composite
+                        else:
+                            all_audios = audio_clips_to_composite
+                            
+                        final_audio = CompositeAudioClip(all_audios).set_duration(video_clip.duration)
+                        final_video = video_clip.set_audio(final_audio)
+                        
+                        output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
+                        final_video.write_videofile(output_video_path, codec="libx264", audio_codec="aac", fps=video_clip.fps)
+                        
+                        video_clip.close()
+                        final_video.close()
+                        
+                        st.success("🎉 ការដាក់សំឡេងចំម៉ោង និងបិទសំឡេងចិនបានសម្រេចជោគជ័យ!")
+                        st.subheader("🎬 វីដេអូចុងក្រោយ (សំឡេងអានខ្មែរត្រូវចំមាត់ + គ្មានសំឡេងចិនរំខាន):")
+                        st.video(output_video_path)
+                        
+                        with open(output_video_path, "rb") as file:
+                            st.download_button(
+                                label="📥 ទាញយកវីដេអូ (Download Precise Dubbed Video)",
+                                data=file,
+                                file_name="precise_dubbed_video.mp4",
+                                mime="video/mp4"
+                            )
+                            
+                        for p in temp_audio_files:
+                            if os.path.exists(p):
+                                os.remove(p)
+                        if os.path.exists(video_path):
+                            os.remove(video_path)
 
-                    # 1. បង្កើតសំឡេង MP3 ជាមួយ edge-tts
-                    asyncio.run(generate_edge_tts(clean_text, selected_voice, audio_path))
-                    
-                    # 2. លាយសំឡេងដើម (BGM/Fighting sounds) និងសំឡេងអាន AI ចូលគ្នាជាមួយវីដេអូ
-                    mix_audio_and_video(video_path, audio_path, output_video_path)
-                    
-                    st.success("🎉 ការលាយសំឡេង និងបង្កើតវីដេអូបានសម្រេចជោគជ័យ!")
-                    
-                    st.subheader("🎬 វីដេអូចុងក្រោយ (ມີសំឡេងវ៉ៃគ្នា/ភ្លេងដើមល្វើយៗ + សំឡេងអានខ្មែរ):")
-                    st.video(output_video_path)
-                    
-                    with open(output_video_path, "rb") as file:
-                        st.download_button(
-                            label="📥 ទាញយកវីដេអូ (Download Mixed Video)",
-                            data=file,
-                            file_name="mixed_dubbed_video.mp4",
-                            mime="video/mp4"
-                        )
-                
-                for p in [video_path, audio_path]:
-                    if os.path.exists(p):
-                        os.remove(p)
-                
             except Exception as e:
                 st.error(f"មានបញ្ហាកើតឡើង: {e}")
-    
+        
