@@ -109,7 +109,6 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងសុទ្ធ
                     "ហាមសរសេរខុសពីទម្រង់កូដពេលវេលានេះ និងហាមពន្យល់រឿងក្រៅពីប្រយោគតួអង្គនិយាយ。"
                 )
                 
-                # 🛠️ ប្រើ gemini-3.8-flash តាមការបង្គាប់របស់ Google API ផ្ទាល់
                 response = client.models.generate_content(
                     model='gemini-3.8-flash',
                     contents=[video_file, prompt],
@@ -135,19 +134,28 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងសុទ្ធ
                         
                         if os.path.exists(chunk_audio_path) and os.path.getsize(chunk_audio_path) > 0:
                             audio_clip = AudioFileClip(chunk_audio_path)
+                            # កំណត់ទីតាំងចាប់ផ្ដើម និងកម្រិតសំឡេងឱ្យច្បាស់ល្អ
                             audio_clip = audio_clip.volumex(1.5).set_start(item["start"])
                             audio_clips_to_composite.append(audio_clip)
 
-                    status_text.info("🎬 កំពុងផ្គុំសំឡេង AI សុទ្ធ និងបង្កើតវីដេអូចុងក្រោយ...")
+                    status_text.info("🎬 កំពុងផ្គុំសំឡេង AI សុទ្ធ និងសរសេរវីដេអូចុងក្រោយ...")
                     
                     if audio_clips_to_composite:
+                        # បង្កើត CompositeAudioClip និងកំណត់ Duration ឱ្យស្មើនឹងវីដេអូដើម
                         final_audio = CompositeAudioClip(audio_clips_to_composite).set_duration(video_clip.duration)
                         final_video = video_clip.set_audio(final_audio)
                     else:
                         final_video = video_clip
                         
                     output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
-                    final_video.write_videofile(output_video_path, codec="libx264", audio_codec="aac", fps=video_clip.fps)
+                    # បង្គាប់ឱ្យសរសេរ Audio Codec ជា aac ធានាថាចេញសំឡេង ១០០%
+                    final_video.write_videofile(
+                        output_video_path, 
+                        codec="libx264", 
+                        audio_codec="aac", 
+                        fps=video_clip.fps,
+                        preset="medium"
+                    )
                     
                     video_clip.close()
                     final_video.close()
@@ -179,5 +187,5 @@ if st.session_state.output_video_path and os.path.exists(st.session_state.output
             data=file,
             file_name="pure_khmer_dubbed.mp4",
             mime="video/mp4"
-        )
+)
         
