@@ -11,7 +11,7 @@ from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip
 st.set_page_config(page_title="AI Pure Khmer Dubbing Pro", layout="centered")
 
 st.title("🎬 AI Pure Khmer Dubbing Pro")
-st.write("ប្រព័ន្ធដាប់ប៊ីងស្អាត ១០០%៖ **បិទសំឡេងចិនចោលទាំងអស់ ទុកតែសំឡេង AI ខ្មែរនិយាយចំម៉ោងតួអង្គ** និងស្ងាត់ពេលអត់មានអ្នកនិយាយ!")
+st.write("ប្រព័ន្ធដាប់ប៊ីងសុទ្ធ៖ បិទសំឡេងចិនចោលទាំងអស់ ទុកតែសំឡេង AI ខ្មែរនិយាយចំម៉ោងតួអង្គ និងស្ងាត់ពេលអត់មានអ្នកនិយាយ!")
 
 api_key = st.text_input("បញ្ចូល Gemini API Key របស់អ្នក:", type="password")
 
@@ -109,8 +109,9 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងសុទ្ធ
                     "ហាមសរសេរខុសពីទម្រង់កូដពេលវេលានេះ និងហាមពន្យល់រឿងក្រៅពីប្រយោគតួអង្គនិយាយ。"
                 )
                 
+                # 🛠️ ប្ដូរមកប្រើ gemini-1.5-flash ដែលមានកូតាទូលាយ និងស្ថេរភាពខ្ពស់
                 response = client.models.generate_content(
-                    model='gemini-3.8-flash',
+                    model='gemini-1.5-flash',
                     contents=[video_file, prompt],
                 )
                 
@@ -140,7 +141,6 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងសុទ្ធ
 
                     status_text.info("🎬 កំពុងផ្គុំសំឡេង AI សុទ្ធ និងបង្កើតវីដេអូចុងក្រោយ...")
                     
-                    # 🔴 ត្រង់នេះយើងមិនយកសំឡេងដើមមកវិញទាល់តែសោះ (បិទសំឡេងចិនដើមចោល ១០០%) គឺយកតែក្លិបសំឡេងអានខ្មែរ AI ສុទ្ធសាធ
                     if audio_clips_to_composite:
                         final_audio = CompositeAudioClip(audio_clips_to_composite).set_duration(video_clip.duration)
                         final_video = video_clip.set_audio(final_audio)
@@ -180,5 +180,5 @@ if st.session_state.output_video_path and os.path.exists(st.session_state.output
             data=file,
             file_name="pure_khmer_dubbed.mp4",
             mime="video/mp4"
-)
-                                       
+                    )
+                    
