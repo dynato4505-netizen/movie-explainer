@@ -109,7 +109,7 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងសុទ្ធ
                     "ហាមសរសេរខុសពីទម្រង់កូដពេលវេលានេះ និងហាមពន្យល់រឿងក្រៅពីប្រយោគតួអង្គនិយាយ。"
                 )
                 
-                # 🛠️ ប្រើ gemini-2.5-flash ស្របតាម Google GenAI SDK ថ្មី
+                # 🛠️ ប្រើ gemini-2.5-flash តាមការណែនាំរបស់ Google API
                 response = client.models.generate_content(
                     model='gemini-2.5-flash',
                     contents=[video_file, prompt],
@@ -135,7 +135,6 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងសុទ្ធ
                         
                         if os.path.exists(chunk_audio_path) and os.path.getsize(chunk_audio_path) > 0:
                             audio_clip = AudioFileClip(chunk_audio_path)
-                            # បង្កើនសំឡេង AI ខ្មែរឱ្យខ្លាំងច្បាស់ល្អ
                             audio_clip = audio_clip.volumex(1.5).set_start(item["start"])
                             audio_clips_to_composite.append(audio_clip)
 
@@ -180,5 +179,5 @@ if st.session_state.output_video_path and os.path.exists(st.session_state.output
             data=file,
             file_name="pure_khmer_dubbed.mp4",
             mime="video/mp4"
-)
-    
+        )
+        
