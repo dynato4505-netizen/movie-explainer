@@ -109,9 +109,9 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងសុទ្ធ
                     "ហាមសរសេរខុសពីទម្រង់កូដពេលវេលានេះ និងហាមពន្យល់រឿងក្រៅពីប្រយោគតួអង្គនិយាយ。"
                 )
                 
-                # 🛠️ ប្ដូរមកប្រើ gemini-1.5-flash ដែលមានកូតាទូលាយ និងស្ថេរភាពខ្ពស់
+                # 🛠️ ប្រើ gemini-2.5-flash ស្របតាម Google GenAI SDK ថ្មី
                 response = client.models.generate_content(
-                    model='gemini-1.5-flash',
+                    model='gemini-2.5-flash',
                     contents=[video_file, prompt],
                 )
                 
@@ -180,5 +180,5 @@ if st.session_state.output_video_path and os.path.exists(st.session_state.output
             data=file,
             file_name="pure_khmer_dubbed.mp4",
             mime="video/mp4"
-                    )
-                    
+)
+    
