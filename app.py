@@ -109,9 +109,9 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងសុទ្ធ
                     "ហាមសរសេរខុសពីទម្រង់កូដពេលវេលានេះ និងហាមពន្យល់រឿងក្រៅពីប្រយោគតួអង្គនិយាយ。"
                 )
                 
-                # 🛠️ ប្រើ gemini-2.5-flash តាមការណែនាំរបស់ Google API
+                # 🛠️ ប្រើ gemini-3.8-flash តាមការបង្គាប់របស់ Google API ផ្ទាល់
                 response = client.models.generate_content(
-                    model='gemini-2.5-flash',
+                    model='gemini-3.8-flash',
                     contents=[video_file, prompt],
                 )
                 
