@@ -8,10 +8,10 @@ import re
 import cv2
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip
 
-st.set_page_config(page_title="AI Smart Cinematic Dubbing Pro", layout="centered")
+st.set_page_config(page_title="AI Pure Khmer Dubbing Pro", layout="centered")
 
-st.title("🎬 AI Smart Cinematic Dubbing Pro")
-st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូកម្រិតខ្ពស់៖ បន្ថយសំឡេងចិន (BGM 10%) និង **បង្កើនសំឡេង AI ខ្មែរឱ្យខ្លាំងច្បាស់ល្អ**!")
+st.title("🎬 AI Pure Khmer Dubbing Pro")
+st.write("ប្រព័ន្ធដាប់ប៊ីងស្អាត ១០០%៖ **បិទសំឡេងចិនចោលទាំងអស់ ទុកតែសំឡេង AI ខ្មែរនិយាយចំម៉ោងតួអង្គ** និងស្ងាត់ពេលអត់មានអ្នកនិយាយ!")
 
 api_key = st.text_input("បញ្ចូល Gemini API Key របស់អ្នក:", type="password")
 
@@ -79,7 +79,7 @@ if "output_video_path" not in st.session_state:
 if "raw_text_result" not in st.session_state:
     st.session_state.raw_text_result = ""
 
-if st.button("ចាប់ផ្តើមដាប់ប៊ីងកម្រិតខ្ពស់ (Volume Balanced) 🚀"):
+if st.button("ចាប់ផ្តើមដាប់ប៊ីងសុទ្ធ (Pure Khmer Dubbing) 🚀"):
     if not api_key:
         st.error("សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
     elif uploaded_file is None:
@@ -134,35 +134,19 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងកម្រិ
                         
                         if os.path.exists(chunk_audio_path) and os.path.getsize(chunk_audio_path) > 0:
                             audio_clip = AudioFileClip(chunk_audio_path)
+                            # បង្កើនសំឡេង AI ខ្មែរឱ្យខ្លាំងច្បាស់ល្អ
                             audio_clip = audio_clip.volumex(1.5).set_start(item["start"])
                             audio_clips_to_composite.append(audio_clip)
 
-                    status_text.info("🎬 กำลังលាយសំឡេង និងបង្កើតវីដេអូចុងក្រោយ...")
-                    if video_clip.audio is not None:
-                        subclips_audio = []
-                        last_end = 0.0
-                        orig_audio = video_clip.audio.volumex(0.1)
-                        
-                        for d in dialogues:
-                            if d["start"] > last_end:
-                                subclips_audio.append(orig_audio.subclip(last_end, d["start"]))
-                            last_end = max(last_end, d["end"])
-                            
-                        if last_end < video_clip.duration:
-                            subclips_audio.append(orig_audio.subclip(last_end, video_clip.duration))
-                            
-                        if subclips_audio:
-                            from moviepy.editor import concatenate_audioclips
-                            clean_bgm = concatenate_audioclips(subclips_audio)
-                            all_audios = [clean_bgm] + audio_clips_to_composite
-                        else:
-                            all_audios = audio_clips_to_composite
-                    else:
-                        all_audios = audio_clips_to_composite
-
-                    final_audio = CompositeAudioClip(all_audios).set_duration(video_clip.duration)
-                    final_video = video_clip.set_audio(final_audio)
+                    status_text.info("🎬 កំពុងផ្គុំសំឡេង AI សុទ្ធ និងបង្កើតវីដេអូចុងក្រោយ...")
                     
+                    # 🔴 ត្រង់នេះយើងមិនយកសំឡេងដើមមកវិញទាល់តែសោះ (បិទសំឡេងចិនដើមចោល ១០០%) គឺយកតែក្លិបសំឡេងអានខ្មែរ AI ສុទ្ធសាធ
+                    if audio_clips_to_composite:
+                        final_audio = CompositeAudioClip(audio_clips_to_composite).set_duration(video_clip.duration)
+                        final_video = video_clip.set_audio(final_audio)
+                    else:
+                        final_video = video_clip
+                        
                     output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
                     final_video.write_videofile(output_video_path, codec="libx264", audio_codec="aac", fps=video_clip.fps)
                     
@@ -170,7 +154,7 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងកម្រិ
                     final_video.close()
                     
                     st.session_state.output_video_path = output_video_path
-                    status_text.success("🎉 ការបង្កើតវីដេអូបានសម្រេចជោគជ័យ ១០០%!")
+                    status_text.success("🎉 ការបង្កើតវីដេអូស៊េរីស្អាត (Pure Khmer Dub) បានសម្រេចជោគជ័យ ១០០%!")
                     
                     for p in temp_audio_files:
                         if os.path.exists(p):
@@ -192,8 +176,9 @@ if st.session_state.output_video_path and os.path.exists(st.session_state.output
     
     with open(st.session_state.output_video_path, "rb") as file:
         st.download_button(
-            label="📥 ទាញយកវីដេអូ (Balanced Dubbed Video)",
+            label="📥 ទាញយកវីដេអូ (Pure Khmer Dubbed Video)",
             data=file,
-            file_name="balanced_dubbed_video.mp4",
+            file_name="pure_khmer_dubbed.mp4",
             mime="video/mp4"
-    )
+)
+                                       
