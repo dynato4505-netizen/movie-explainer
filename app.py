@@ -74,6 +74,12 @@ def parse_timestamps(text):
 if uploaded_file is not None:
     st.video(uploaded_file)
 
+# Initialize session state variables to prevent resetting
+if "output_video_path" not in st.session_state:
+    st.session_state.output_video_path = None
+if "raw_text_result" not in st.session_state:
+    st.session_state.raw_text_result = ""
+
 if st.button("ចាប់ផ្តើមដាប់ប៊ីងឆ្លាតវៃ (Smart Ducking) 🚀"):
     if not api_key:
         st.error("សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
@@ -108,11 +114,8 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងឆ្លាត
                         contents=[video_file, prompt],
                     )
                     
-                    raw_text = response.text
-                    st.subheader("📝 កូដពេលវេលា និងអត្ថបទបកប្រែ:")
-                    st.text_area("Timestamps & Text:", raw_text, height=200)
-                    
-                    dialogues = parse_timestamps(raw_text)
+                    st.session_state.raw_text_result = response.text
+                    dialogues = parse_timestamps(st.session_state.raw_text_result)
                     
                     if not dialogues:
                         st.error("❌ រកមិនឃើញកូដពេលវេលាត្រឹមត្រូវទេ។ សូមព្យាយាមម្ដងទៀត។")
@@ -135,14 +138,12 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងឆ្លាត
                                 audio_clips_to_composite.append(audio_clip)
 
                         if video_clip.audio is not None:
-                            # វិធីសាស្ត្រជំនួសដែលមានសុវត្ថិភាពខ្ពស់៖ កាត់បន្ថយសំឡេងដើមឱ្យនៅស្ងាត់ស្អាត (volumex(0)) តាមចន្លោះម៉ោងនីមួយៗដោយផ្ទាល់
                             subclips_audio = []
                             last_end = 0.0
                             orig_audio = video_clip.audio
                             
                             for d in dialogues:
                                 if d["start"] > last_end:
-                                    # យកសំឡេងដើមช่วงที่គ្មានអ្នកនិយាយ (រក្សាភ្លេង BGM)
                                     subclips_audio.append(orig_audio.subclip(last_end, d["start"]))
                                 last_end = max(last_end, d["end"])
                                 
@@ -167,18 +168,9 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងឆ្លាត
                         video_clip.close()
                         final_video.close()
                         
-                        st.success("🎉 ការដាប់ប៊ីងឆ្លាតវៃបានសម្រេចជោគជ័យ ១០០%!")
-                        st.subheader("🎬 វីដេអូចុងក្រោយ:")
-                        st.video(output_video_path)
+                        # Save to session state so it persists
+                        st.session_state.output_video_path = output_video_path
                         
-                        with open(output_video_path, "rb") as file:
-                            st.download_button(
-                                label="📥 ទាញយកវីដេអូ (Smart Dubbed Video)",
-                                data=file,
-                                file_name="smart_dubbed_video.mp4",
-                                mime="video/mp4"
-                            )
-                            
                         for p in temp_audio_files:
                             if os.path.exists(p):
                                 os.remove(p)
@@ -187,3 +179,22 @@ if st.button("ចាប់ផ្តើមដាប់ប៊ីងឆ្លាត
 
             except Exception as e:
                 st.error(f"មានបញ្ហាកើតឡើង: {e}")
+
+# Display results securely from session state
+if st.session_state.raw_text_result:
+    st.subheader("📝 កូដពេលវេលា និងអត្ថបទបកប្រែ:")
+    st.text_area("Timestamps & Text:", st.session_state.raw_text_result, height=200)
+
+if st.session_state.output_video_path and os.path.exists(st.session_state.output_video_path):
+    st.success("🎉 ការដាប់ប៊ីងឆ្លាតវៃបានសម្រេចជោគជ័យ ១០០%!")
+    st.subheader("🎬 វីដេអូចុងក្រោយ:")
+    st.video(st.session_state.output_video_path)
+    
+    with open(st.session_state.output_video_path, "rb") as file:
+        st.download_button(
+            label="📥 ទាញយកវីដេអូ (Smart Dubbed Video)",
+            data=file,
+            file_name="smart_dubbed_video.mp4",
+            mime="video/mp4"
+    )
+                
