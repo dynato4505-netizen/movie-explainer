@@ -15,8 +15,8 @@ except ImportError:
 
 st.set_page_config(page_title="AI Khmer Video Dubbing Pro", layout="centered")
 
-st.title("🎬 AI Khmer Video Dubbing Pro")
-st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូ៖ រក្សាទំហំដើម + សំឡេង AI ធម្មជាតិ + សារ៉េកម្រិតសំឡេងតាមចិត្ត!")
+st.title("🎬 AI Khmer Video Dubbing Pro (Clean Dubbing)")
+st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូ៖ បំបាត់សំឡេងចិនដើមចេញទាំងស្រុង និងដាក់សំឡេង AI ខ្មែរច្បាស់ៗ!")
 
 # ជ្រើសរើសសំឡេង AI ស្រី ឬ ប្រុស
 voice_choice = st.selectbox(
@@ -30,11 +30,13 @@ voice_map = {
 }
 selected_voice = voice_map[voice_choice]
 
-# 🎛️ ការកំណត់កម្រិតសំឡេង (Volume Settings) ក្នុង Sidebar
+# 🎛️ ការកំណត់កម្រិតសំឡេងក្នុង Sidebar
 st.sidebar.header("🎛️ ការសារ៉េកម្រិតសំឡេង (Audio Mixer)")
-ai_volume = st.sidebar.slider("កម្រិតសំឡេង AI (Voice Volume):", 0.5, 2.0, 1.4, 0.1)
-original_bg_volume = st.sidebar.slider("កម្រិតសំឡេងតន្ត្រី/សំឡេងដើម (Original/BG Volume):", 0.0, 1.0, 0.2, 0.05)
-st.sidebar.info("💡 បើដាក់ 0.0 គឺបិទសំឡេងដើមទាំងស្រុង។ បើដាក់ 0.1 - 0.3 គឺទុកសំឡេងតន្ត្រីដើមលឺខ្សោយៗពីក្រោយ!")
+ai_volume = st.sidebar.slider("កម្រិតសំឡេង AI (Voice Volume):", 0.5, 2.0, 1.5, 0.1)
+
+# 💡 ណែនាំ៖ សម្រាប់វីដេអូដែលមានសំឡេងចិននិយាយខ្លាំង គួរដាក់ Original Volume ត្រឹម 0.0 ដើម្បីបំបាត់សំឡេងចិនចេញទាំងស្រុង!
+original_bg_volume = st.sidebar.slider("កម្រិតសំឡេងតន្ត្រី/សំឡេងដើម (Original/BG Volume):", 0.0, 0.5, 0.0, 0.05)
+st.sidebar.info("💡 ដាក់ 0.0 ដើម្បីកាត់ផ្ដាច់សំឡេងតួអង្គចិនដើមចេញទាំងស្រុង ធ្វើឱ្យសំឡេង AI ខ្មែរលឺច្បាស់ល្អឥតខ្ចោះ!")
 
 # ប្រអប់ Upload វីដេអូ
 uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូដើម (MP4, MOV):", type=["mp4", "mov", "avi"])
@@ -93,7 +95,7 @@ if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង 
         st.warning("សូម Paste ស្គ្រីប Timestamps ពី Google Flow ជាមុនសិន!")
     else:
         status_text = st.empty()
-        status_text.info("🔄 កំពុងបង្កើតសំឡេង AI និងលាយបញ្ចូលគ្នាយ่างរលូន...")
+        status_text.info("🔄 កំពុងបង្កើតសំឡេង AI និងកាត់សំឡេងចិនដើមចេញ...")
         
         try:
             tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
@@ -123,11 +125,11 @@ if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង 
                         audio_clip = audio_clip.volumex(ai_volume).set_start(item["start"])
                         audio_clips_to_composite.append(audio_clip)
 
-                status_text.info("🎬 កំពុងលាយសំឡេង AI និងសំឡេងដើម (Audio Mixing)...")
+                status_text.info("🎬 កំពុងផ្គុំសំឡេង AI សុទ្ធសាធចូលក្នុងវីដេអូ...")
                 
                 audio_list_to_mix = []
                 
-                # រក្សាសំឡេងដើមវីដេអូតាមកម្រិតដែលបានសារ៉េក្នុង Sidebar
+                # បើ original_bg_volume ធំជាង 0 ទើបដាក់សំឡេងដើមចូល បើដាក់ 0 គឺបិទសំឡេងចិនចោលទាំងស្រុង
                 if original_bg_volume > 0 and video_clip.audio is not None:
                     original_audio = video_clip.audio.volumex(original_bg_volume).set_duration(duration)
                     audio_list_to_mix.append(original_audio)
@@ -141,7 +143,8 @@ if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង 
                     final_audio = CompositeAudioClip(audio_list_to_mix).set_duration(duration)
                     final_video = video_clip.set_audio(final_audio)
                 else:
-                    final_video = video_clip
+                    # បើបិទសំឡេងដើមទាំងស្រុង ហើយអត់មាន AI គឺទុកវីដេអូគ្មានសំឡេង
+                    final_video = video_clip.set_audio(None)
                     
                 output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
                 final_video.write_videofile(
@@ -155,7 +158,7 @@ if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង 
                 final_video.close()
                 
                 st.session_state.output_video_path = output_video_path
-                status_text.success("🎉 បង្កើតវីដេអូលាយសំឡេងរួចរាល់ជោគជ័យ ១០០%!")
+                status_text.success("🎉 បង្កើតវីដេអូដាប់ប៊ីងស្អាតល្អជោគជ័យ ១០០%!")
                 
                 for p in temp_audio_files:
                     if os.path.exists(p): os.remove(p)
@@ -165,7 +168,7 @@ if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង 
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
 
 if st.session_state.output_video_path and os.path.exists(st.session_state.output_video_path):
-    st.success("🎉 វីដេអូបកប្រែ និងលាយសំឡេងរួចរាល់ជាស្ថាពរ!")
+    st.success("🎉 វីដេអូកែសម្រួលរួចរាល់ជាស្ថាពរ!")
     st.subheader("🎬 វីដេអូចុងក្រោយ:")
     st.video(st.session_state.output_video_path)
     
@@ -173,6 +176,7 @@ if st.session_state.output_video_path and os.path.exists(st.session_state.output
         st.download_button(
             label="📥 ទាញយកវីដេអូចុងក្រោយ (Download Video)",
             data=file,
-            file_name="khmer_dubbed_final.mp4",
+            file_name="khmer_dubbed_clean.mp4",
             mime="video/mp4"
-)
+                )
+        
