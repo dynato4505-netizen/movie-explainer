@@ -7,4 +7,3 @@ numpy
 Pillow
 requests
 moviepy
-gtts
