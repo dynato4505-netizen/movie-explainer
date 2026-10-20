@@ -4,8 +4,6 @@ import edge_tts
 import os
 import tempfile
 import re
-import cv2
-import numpy as np
 
 # Import moviepy ដោយសុវត្ថិភាព ដើម្បីការពារបញ្ហា ImportError
 try:
@@ -17,8 +15,8 @@ except ImportError:
 
 st.set_page_config(page_title="AI Khmer Video Dubbing Pro", layout="centered")
 
-st.title("🎬 AI Khmer Video Dubbing Pro (Smart Background Audio)")
-st.write("ប្រព័ន្ធដាប់ប៊ីង៖ រក្សាសំឡេងតន្ត្រី/បរិយាកាសដើមនៅកន្លែងតួអង្គអត់និយាយ និងដាក់សំឡេង AI ពេលតួអង្គនិយាយ!")
+st.title("🎬 AI Khmer Video Dubbing Pro")
+st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូ៖ រក្សាទំហំដើម + សំឡេង AI ធម្មជាតិ + សារ៉េកម្រិតសំឡេងតាមចិត្ត!")
 
 # ជ្រើសរើសសំឡេង AI ស្រី ឬ ប្រុស
 voice_choice = st.selectbox(
@@ -32,11 +30,11 @@ voice_map = {
 }
 selected_voice = voice_map[voice_choice]
 
-# 🎛️ ការកំណត់កម្រិតសំឡេង
-st.sidebar.header("🎛️ កម្រិតសំឡេង (Smart Audio Mixer)")
+# 🎛️ ការកំណត់កម្រិតសំឡេង (Volume Settings) ក្នុង Sidebar
+st.sidebar.header("🎛️ ការសារ៉េកម្រិតសំឡេង (Audio Mixer)")
 ai_volume = st.sidebar.slider("កម្រិតសំឡេង AI (Voice Volume):", 0.5, 2.0, 1.4, 0.1)
-bg_volume_during_speech = st.sidebar.slider("កម្រិតសំឡេងដើមពេលតួអង្គនិយាយ (Duck Volume):", 0.0, 0.5, 0.1, 0.05)
-bg_volume_normal = st.sidebar.slider("កម្រិតសំឡេងដើមពេលអត់មានអ្នកនិយាយ (Normal BG Volume):", 0.1, 1.0, 0.8, 0.05)
+original_bg_volume = st.sidebar.slider("កម្រិតសំឡេងតន្ត្រី/សំឡេងដើម (Original/BG Volume):", 0.0, 1.0, 0.2, 0.05)
+st.sidebar.info("💡 បើដាក់ 0.0 គឺបិទសំឡេងដើមទាំងស្រុង។ បើដាក់ 0.1 - 0.3 គឺទុកសំឡេងតន្ត្រីដើមលឺខ្សោយៗពីក្រោយ!")
 
 # ប្រអប់ Upload វីដេអូ
 uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូដើម (MP4, MOV):", type=["mp4", "mov", "avi"])
@@ -88,14 +86,14 @@ if uploaded_file is not None:
 if "output_video_path" not in st.session_state:
     st.session_state.output_video_path = None
 
-if st.button("🚀 ចាប់ផ្តើមបង្កើតវីដេអូ (Smart Audio Mixing)"):
+if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង AI ចូលក្នុងវីដេអូ"):
     if uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
     elif not flow_script.strip():
         st.warning("សូម Paste ស្គ្រីប Timestamps ពី Google Flow ជាមុនសិន!")
     else:
         status_text = st.empty()
-        status_text.info("🔄 កំពុងបង្កើតសំឡេង AI និងកែច្នៃសំឡេងផ្ទៃខាងក្រោយ (Smart Ducking)...")
+        status_text.info("🔄 កំពុងបង្កើតសំឡេង AI និងលាយបញ្ចូលគ្នាយ่างរលូន...")
         
         try:
             tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
@@ -111,9 +109,9 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតវីដេអ�
                 duration = video_clip.duration
                 
                 temp_audio_files = []
-                ai_audio_clips = []
+                audio_clips_to_composite = []
                 
-                # បង្កើតសំឡេង AI តាម Timestamps
+                # បន្ថែមសំឡេង AI ចូលតាម Timestamps
                 for item in dialogues:
                     chunk_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
                     temp_audio_files.append(chunk_audio_path)
@@ -123,41 +121,24 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតវីដេអ�
                     if os.path.exists(chunk_audio_path) and os.path.getsize(chunk_audio_path) > 0:
                         audio_clip = AudioFileClip(chunk_audio_path)
                         audio_clip = audio_clip.volumex(ai_volume).set_start(item["start"])
-                        ai_audio_clips.append(audio_clip)
+                        audio_clips_to_composite.append(audio_clip)
 
-                status_text.info("🎬 កំពុងលាយបញ្ចូលគ្នារវាងសំឡេង AI និងសំឡេងបរិយាកាសដើម...")
+                status_text.info("🎬 កំពុងលាយសំឡេង AI និងសំឡេងដើម (Audio Mixing)...")
                 
-                audio_mix_list = []
+                audio_list_to_mix = []
                 
-                # បើវីដេអូដើមមានសំឡេង យើងបង្កើត Custom Volume តាមពេលវេលា
-                if video_clip.audio is not None:
-                    original_audio = video_clip.audio
-                    
-                    # បង្កើត Function កំណត់សំឡេងដើមឱ្យខ្លាំងពេលអត់និយាយ និងខ្សោយពេលមាន AI និយាយ (Audio Ducking)
-                    def dynamic_volume(get_frame, t):
-                        # t គឺពេលវេលាបច្ចុប្បន្នជាវិនាទី
-                        is_speaking = False
-                        for d in dialogues:
-                            if d["start"] <= t <= d["end"]:
-                                is_speaking = True
-                                break
-                        
-                        vol = bg_volume_during_speech if is_speaking else bg_volume_normal
-                        frame = get_frame(t)
-                        return frame * vol
-
-                    # អនុវត្ត Dynamic Volume លើសំឡេងដើម
-                    processed_original_audio = original_audio.fl(dynamic_volume, keep_duration=True)
-                    audio_mix_list.append(processed_original_audio)
+                # រក្សាសំឡេងដើមវីដេអូតាមកម្រិតដែលបានសារ៉េក្នុង Sidebar
+                if original_bg_volume > 0 and video_clip.audio is not None:
+                    original_audio = video_clip.audio.volumex(original_bg_volume).set_duration(duration)
+                    audio_list_to_mix.append(original_audio)
                 
                 # បន្ថែមសំឡេង AI ចូល
-                if ai_audio_clips:
-                    ai_composite = CompositeAudioClip(ai_audio_clips).set_duration(duration)
-                    audio_mix_list.append(ai_composite)
+                if audio_clips_to_composite:
+                    ai_composite = CompositeAudioClip(audio_clips_to_composite).set_duration(duration)
+                    audio_list_to_mix.append(ai_composite)
                 
-                # ផ្គុំសំឡេងទាំងអស់ចូលគ្នា
-                if audio_mix_list:
-                    final_audio = CompositeAudioClip(audio_mix_list).set_duration(duration)
+                if audio_list_to_mix:
+                    final_audio = CompositeAudioClip(audio_list_to_mix).set_duration(duration)
                     final_video = video_clip.set_audio(final_audio)
                 else:
                     final_video = video_clip
@@ -174,7 +155,7 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតវីដេអ�
                 final_video.close()
                 
                 st.session_state.output_video_path = output_video_path
-                status_text.success("🎉 បង្កើតវីដេអូលាយសំឡេងឆ្លាតវៃជោគជ័យ ១០០%!")
+                status_text.success("🎉 បង្កើតវីដេអូលាយសំឡេងរួចរាល់ជោគជ័យ ១០០%!")
                 
                 for p in temp_audio_files:
                     if os.path.exists(p): os.remove(p)
@@ -184,7 +165,7 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតវីដេអ�
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
 
 if st.session_state.output_video_path and os.path.exists(st.session_state.output_video_path):
-    st.success("🎉 វីដេអូរួចរាល់ជាស្ថាពរ!")
+    st.success("🎉 វីដេអូបកប្រែ និងលាយសំឡេងរួចរាល់ជាស្ថាពរ!")
     st.subheader("🎬 វីដេអូចុងក្រោយ:")
     st.video(st.session_state.output_video_path)
     
@@ -192,7 +173,6 @@ if st.session_state.output_video_path and os.path.exists(st.session_state.output
         st.download_button(
             label="📥 ទាញយកវីដេអូចុងក្រោយ (Download Video)",
             data=file,
-            file_name="khmer_smart_dubbed.mp4",
+            file_name="khmer_dubbed_final.mp4",
             mime="video/mp4"
-        )
-        
+)
