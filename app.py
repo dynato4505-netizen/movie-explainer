@@ -14,10 +14,15 @@ except ImportError:
     from moviepy.audio.io.AudioFileClip import AudioFileClip
     from moviepy.audio.CompositeAudioClip import CompositeAudioClip
 
+from google import genai
+
 st.set_page_config(page_title="AI Khmer Video Dubbing Pro", layout="centered")
 
 st.title("🎬 AI Khmer Video Dubbing Pro")
-st.write("ប្រព័ន្ធ Upload វីដេអូ + ដាក់សំឡេង AI ខ្មែរចំម៉ោងតួអង្គ (Auto-Sync) យ៉ាងរលូន!")
+st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូ៖ ប្រើប្រាស់ Gemini API Key ឬ Paste ស្គ្រីបពី Google Flow យ៉ាងងាយស្រួល!")
+
+# 🔑 ប្រអប់បញ្ចូល Gemini API Key
+api_key = st.text_input("🔑 បញ្ចូល Gemini API Key របស់អ្នក:", type="password", placeholder="AIzaSy...")
 
 # ជ្រើសរើសសំឡេង AI ស្រី ឬ ប្រុស
 voice_choice = st.selectbox(
@@ -36,19 +41,10 @@ uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូដ�
 
 # ប្រអប់សម្រាប់ដាក់ Timestamps និងអត្ថបទ (ពី Google Flow)
 flow_script = st.text_area(
-    "📝 ដាក់ Timestamps & ស្គ្រីប (ពី Google Flow):",
+    "📝 ដាក់ Timestamps & ស្គ្រីប (ពី Google Flow ឬ Gemini):",
     placeholder="[00:01 - 00:03] សួស្តី\n[00:05 - 00:08] ຍິນດີต้อนรับ...",
     height=180
 )
-
-def get_video_duration(video_path):
-    cap = cv2.VideoCapture(video_path)
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    cap.release()
-    if fps > 0:
-        return frame_count / fps
-    return 0
 
 def time_to_seconds(time_str):
     parts = time_str.split(':')
@@ -89,12 +85,58 @@ if uploaded_file is not None:
 
 if "output_video_path" not in st.session_state:
     st.session_state.output_video_path = None
+if "raw_text_result" not in st.session_state:
+    st.session_state.raw_text_result = ""
 
-if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង AI ទៅក្នុងវីដេអូ"):
+# 🚀 ប៊ូតុងទី១៖ ឱ្យ Gemini API ຊួយវិភាគវីដេអូស្វ័យប្រវត្តិ
+if st.button("🤖 ឱ្យ Gemini AI វិភាគវីដេអូ និងបង្កើត Timestamps ស្វ័យប្រវត្តិ"):
+    if not api_key:
+        st.error("សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
+    elif uploaded_file is None:
+        st.warning("សូម Upload វីដេអូជាមុនសិន!")
+    else:
+        status_text = st.empty()
+        status_text.info("🔄 កំពុងវិភាគវីដេអូជាមួយ Gemini API...")
+        try:
+            tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+            tfile.write(uploaded_file.read())
+            video_path = tfile.name
+
+            client = genai.Client(api_key=api_key)
+            video_file = client.files.upload(file=video_path)
+
+            prompt = (
+                "អ្នកគឺជាអ្នកបកប្រែប្រយោគតួអង្គភាពយន្តអាជីព។ "
+                "សូមទស្សនាវីដេអូនេះដោយផ្ចង់ស្មារតីលើបបូរមាត់តួអង្គ រួចកំណត់ពេលវេលា [MM:SS - MM:SS] ឱ្យបានត្រឹមត្រូវបំផុត "
+                "សម្រាប់រាល់ឃ្លាប្រយោគដែលតួអង្គនិយាយ ហើយបកប្រែជាភាសាខ្មែរតាមទម្រង់នេះដាច់ខាត៖\n"
+                "[00:05 - 00:08] សួស្ដី\n"
+                "[00:12 - 00:15] ប្រយោគបន្ទាប់...\n"
+                "ហាមសរសេរខុសពីទម្រង់កូដពេលវេលានេះ និងហាមពន្យល់រឿងក្រៅពីប្រយោគតួអង្គនិយាយ。"
+            )
+            
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[video_file, prompt],
+            )
+            
+            st.session_state.raw_text_result = response.text
+            status_text.success("🎉 វិភាគវីដេអូរួចរាល់! សូមមើលលទ្ធផលខាងក្រោម ហើយចុចប៊ូតុងបង្កើតវីដេអូខាងក្រោម។")
+            
+            if os.path.exists(video_path):
+                os.remove(video_path)
+        except Exception as e:
+            st.error(f"មានបញ្ហាកើតឡើងជាមួយ API: {e}")
+
+if st.session_state.raw_text_result:
+    st.subheader("📝 Timestamps ដែលបានពី Gemini:")
+    flow_script = st.text_area("កែសម្រួល Timestamps បើចាំបាច់:", value=st.session_state.raw_text_result, height=180)
+
+# 🚀 ប៊ូតុងទី២៖ ចាប់ផ្តើមបញ្ចូលសំឡេង AI ចូលវីដេអូ
+if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង AI ចូលក្នុងវីដេអូ (Dubbing)"):
     if uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
     elif not flow_script.strip():
-        st.warning("សូម Paste ស្គ្រីប Timestamps ពី Google Flow ជាមុនសិន!")
+        st.warning("សូម Paste ឬបំពេញ Timestamps ក្នុងប្រអប់ខាងលើជាមុនសិន!")
     else:
         status_text = st.empty()
         status_text.info("🔄 កំពុងបង្កើតសំឡេង AI និងផ្គុំចូលវីដេអូ...")
@@ -164,5 +206,5 @@ if st.session_state.output_video_path and os.path.exists(st.session_state.output
             data=file,
             file_name="khmer_dubbed_video.mp4",
             mime="video/mp4"
-    )
+                )
         
