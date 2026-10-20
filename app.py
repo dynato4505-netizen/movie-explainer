@@ -15,8 +15,8 @@ except ImportError:
 
 st.set_page_config(page_title="AI Khmer Video Dubbing Pro", layout="centered")
 
-st.title("🎬 AI Khmer Video Dubbing Pro (Clean Dubbing)")
-st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូ៖ បំបាត់សំឡេងចិនដើមចេញទាំងស្រុង និងដាក់សំឡេង AI ខ្មែរច្បាស់ៗ!")
+st.title("🎬 AI Khmer Video Dubbing Pro (Clean AI Audio)")
+st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូ៖ ដាក់តែសំឡេង AI ខ្មែរ រក្សាទំហំវីដេអូដើម និងបិទសំឡេងចិនដើមទាំងស្រុង!")
 
 # ជ្រើសរើសសំឡេង AI ស្រី ឬ ប្រុស
 voice_choice = st.selectbox(
@@ -30,13 +30,10 @@ voice_map = {
 }
 selected_voice = voice_map[voice_choice]
 
-# 🎛️ ការកំណត់កម្រិតសំឡេងក្នុង Sidebar
-st.sidebar.header("🎛️ ការសារ៉េកម្រិតសំឡេង (Audio Mixer)")
+# 🎛️ ការកំណត់កម្រិតសំឡេង AI ក្នុង Sidebar
+st.sidebar.header("🎛️ ការសារ៉េកម្រិតសំឡេង (Audio Settings)")
 ai_volume = st.sidebar.slider("កម្រិតសំឡេង AI (Voice Volume):", 0.5, 2.0, 1.5, 0.1)
-
-# 💡 ណែនាំ៖ សម្រាប់វីដេអូដែលមានសំឡេងចិននិយាយខ្លាំង គួរដាក់ Original Volume ត្រឹម 0.0 ដើម្បីបំបាត់សំឡេងចិនចេញទាំងស្រុង!
-original_bg_volume = st.sidebar.slider("កម្រិតសំឡេងតន្ត្រី/សំឡេងដើម (Original/BG Volume):", 0.0, 0.5, 0.0, 0.05)
-st.sidebar.info("💡 ដាក់ 0.0 ដើម្បីកាត់ផ្ដាច់សំឡេងតួអង្គចិនដើមចេញទាំងស្រុង ធ្វើឱ្យសំឡេង AI ខ្មែរលឺច្បាស់ល្អឥតខ្ចោះ!")
+st.sidebar.info("💡 យកតែសំឡេង AI ខ្មែរសុទ្ធសាធ (សំឡេងចិនដើមត្រូវបានកាត់ផ្ដាច់ចេញទាំងស្រុងស្វ័យប្រវត្តិ)")
 
 # ប្រអប់ Upload វីដេអូ
 uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូដើម (MP4, MOV):", type=["mp4", "mov", "avi"])
@@ -95,7 +92,7 @@ if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង 
         st.warning("សូម Paste ស្គ្រីប Timestamps ពី Google Flow ជាមុនសិន!")
     else:
         status_text = st.empty()
-        status_text.info("🔄 កំពុងបង្កើតសំឡេង AI និងកាត់សំឡេងចិនដើមចេញ...")
+        status_text.info("🔄 កំពុងបង្កើតសំឡេង AI និងកាត់សំឡេងដើមចេញ...")
         
         try:
             tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
@@ -125,25 +122,13 @@ if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង 
                         audio_clip = audio_clip.volumex(ai_volume).set_start(item["start"])
                         audio_clips_to_composite.append(audio_clip)
 
-                status_text.info("🎬 កំពុងផ្គុំសំឡេង AI សុទ្ធសាធចូលក្នុងវីដេអូ...")
+                status_text.info("🎬 កំពុងដាក់សំឡេង AI សុទ្ធសាធចូលក្នុងវីដេអូ...")
                 
-                audio_list_to_mix = []
-                
-                # បើ original_bg_volume ធំជាង 0 ទើបដាក់សំឡេងដើមចូល បើដាក់ 0 គឺបិទសំឡេងចិនចោលទាំងស្រុង
-                if original_bg_volume > 0 and video_clip.audio is not None:
-                    original_audio = video_clip.audio.volumex(original_bg_volume).set_duration(duration)
-                    audio_list_to_mix.append(original_audio)
-                
-                # បន្ថែមសំឡេង AI ចូល
+                # ដាក់តែសំឡេង AI ចូល បិទសំឡេងដើមទាំងស្រុង (Clean Audio)
                 if audio_clips_to_composite:
-                    ai_composite = CompositeAudioClip(audio_clips_to_composite).set_duration(duration)
-                    audio_list_to_mix.append(ai_composite)
-                
-                if audio_list_to_mix:
-                    final_audio = CompositeAudioClip(audio_list_to_mix).set_duration(duration)
+                    final_audio = CompositeAudioClip(audio_clips_to_composite).set_duration(duration)
                     final_video = video_clip.set_audio(final_audio)
                 else:
-                    # បើបិទសំឡេងដើមទាំងស្រុង ហើយអត់មាន AI គឺទុកវីដេអូគ្មានសំឡេង
                     final_video = video_clip.set_audio(None)
                     
                 output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
@@ -178,5 +163,5 @@ if st.session_state.output_video_path and os.path.exists(st.session_state.output
             data=file,
             file_name="khmer_dubbed_clean.mp4",
             mime="video/mp4"
-                )
-        
+        )
+            
