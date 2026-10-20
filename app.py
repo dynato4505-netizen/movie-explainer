@@ -3,6 +3,7 @@ import asyncio
 import edge_tts
 import os
 import tempfile
+import time
 import re
 
 # Import moviepy ដោយសុវត្ថិភាព
@@ -15,8 +16,8 @@ except ImportError:
 
 st.set_page_config(page_title="AI Khmer Video Dubbing Pro", layout="centered")
 
-st.title("🎬 AI Khmer Video Dubbing Pro (Stable Version)")
-st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូ៖ សុវត្ថិភាពខ្ពស់ រលូន និងមិនគាំង!")
+st.title("🎬 AI Khmer Video Dubbing Pro (Safe Mode)")
+st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូ៖ មានប្រព័ន្ធសម្រាកសុវត្ថិភាព មិនឱ្យដាច់តំណ Server ពេលវីដេអូវែង!")
 
 # ជ្រើសរើសសំឡេង AI ស្រី ឬ ប្រុស
 voice_choice = st.selectbox(
@@ -74,9 +75,19 @@ def parse_timestamps(text):
             })
     return dialogues
 
-async def generate_tts(text, voice, output_path):
-    communicate = edge_tts.Communicate(text, voice)
-    await communicate.save(output_path)
+async def generate_tts_with_retry(text, voice, output_path):
+    # ព្យាយាមទាញយក រួមទាំងមានប្រព័ន្ធ Retry ៣ ដងការពារការដាច់តំណ
+    for attempt in range(3):
+        try:
+            communicate = edge_tts.Communicate(text, voice)
+            await communicate.save(output_path)
+            if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                return True
+        except Exception:
+            if attempt == 2:
+                return False
+            await asyncio.sleep(1)
+    return False
 
 if uploaded_file is not None:
     st.video(uploaded_file)
@@ -84,7 +95,7 @@ if uploaded_file is not None:
 if "output_video_path" not in st.session_state:
     st.session_state.output_video_path = None
 
-if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង AI"):
+if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង AI (Safe Mode)"):
     if uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
     elif not flow_script.strip():
@@ -112,19 +123,22 @@ if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង 
                 
                 total_items = len(dialogues)
                 
-                # 🔄 រត់បង្កើតសំឡេងម្ដង១ យ៉ាងរលូន (Sequential with Progress) ដើម្បីការពារការដាច់កាតតំណរភ្ជាប់
+                # 🔄 រត់បង្កើតសំឡេងម្ដង១ យ៉ាងស្រទន់ និងមានការសម្រាក (Delay) ដើម្បីការពារ Error
                 for i, item in enumerate(dialogues):
                     status_text.info(f"🎙️ កំពុងបង្កើតសំឡេង AI ទី {i+1} នៃ {total_items}...")
                     chunk_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
                     temp_audio_files.append(chunk_audio_path)
                     
-                    # ហៅ asyncio រត់ដាច់ដោយឡែកពីគ្នា ធានាមិនគាំង
-                    asyncio.run(generate_tts(item["text"], selected_voice, chunk_audio_path))
+                    # ហៅ asyncio រត់បង្កើតអូឌីយ៉ូ
+                    asyncio.run(generate_tts_with_retry(item["text"], selected_voice, chunk_audio_path))
                     
                     if os.path.exists(chunk_audio_path) and os.path.getsize(chunk_audio_path) > 0:
                         audio_clip = AudioFileClip(chunk_audio_path)
                         audio_clip = audio_clip.volumex(ai_volume).set_start(item["start"])
                         audio_clips_to_composite.append(audio_clip)
+                    
+                    # 🛑 សម្រាក 0.4 វិនាទីរវាងប្រយោគនីមួយៗ ដើម្បីកុំឱ្យ Server បិទខ្ទប់ IP (Rate Limit)
+                    time.sleep(0.4)
                     
                     progress_bar.progress(int((i + 1) / total_items * 70))
 
@@ -169,7 +183,7 @@ if st.session_state.output_video_path and os.path.exists(st.session_state.output
         st.download_button(
             label="📥 ទាញយកវីដេអូចុងក្រោយ (Download Video)",
             data=file,
-            file_name="khmer_dubbed_stable.mp4",
+            file_name="khmer_dubbed_safemode.mp4",
             mime="video/mp4"
-)
-                   
+                )
+        
