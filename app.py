@@ -5,6 +5,7 @@ import os
 import tempfile
 import re
 import cv2
+import numpy as np
 
 # Import moviepy ដោយសុវត្ថិភាព ដើម្បីការពារបញ្ហា ImportError
 try:
@@ -14,15 +15,10 @@ except ImportError:
     from moviepy.audio.io.AudioFileClip import AudioFileClip
     from moviepy.audio.CompositeAudioClip import CompositeAudioClip
 
-from google import genai
-
 st.set_page_config(page_title="AI Khmer Video Dubbing Pro", layout="centered")
 
-st.title("🎬 AI Khmer Video Dubbing Pro")
-st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូ៖ ប្រើប្រាស់ Gemini API Key ឬ Paste ស្គ្រីបពី Google Flow យ៉ាងងាយស្រួល!")
-
-# 🔑 ប្រអប់បញ្ចូល Gemini API Key
-api_key = st.text_input("🔑 បញ្ចូល Gemini API Key របស់អ្នក:", type="password", placeholder="AIzaSy...")
+st.title("🎬 AI Khmer Video Dubbing Pro (Smart Background Audio)")
+st.write("ប្រព័ន្ធដាប់ប៊ីង៖ រក្សាសំឡេងតន្ត្រី/បរិយាកាសដើមនៅកន្លែងតួអង្គអត់និយាយ និងដាក់សំឡេង AI ពេលតួអង្គនិយាយ!")
 
 # ជ្រើសរើសសំឡេង AI ស្រី ឬ ប្រុស
 voice_choice = st.selectbox(
@@ -36,12 +32,18 @@ voice_map = {
 }
 selected_voice = voice_map[voice_choice]
 
+# 🎛️ ការកំណត់កម្រិតសំឡេង
+st.sidebar.header("🎛️ កម្រិតសំឡេង (Smart Audio Mixer)")
+ai_volume = st.sidebar.slider("កម្រិតសំឡេង AI (Voice Volume):", 0.5, 2.0, 1.4, 0.1)
+bg_volume_during_speech = st.sidebar.slider("កម្រិតសំឡេងដើមពេលតួអង្គនិយាយ (Duck Volume):", 0.0, 0.5, 0.1, 0.05)
+bg_volume_normal = st.sidebar.slider("កម្រិតសំឡេងដើមពេលអត់មានអ្នកនិយាយ (Normal BG Volume):", 0.1, 1.0, 0.8, 0.05)
+
 # ប្រអប់ Upload វីដេអូ
 uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូដើម (MP4, MOV):", type=["mp4", "mov", "avi"])
 
 # ប្រអប់សម្រាប់ដាក់ Timestamps និងអត្ថបទ (ពី Google Flow)
 flow_script = st.text_area(
-    "📝 ដាក់ Timestamps & ស្គ្រីប (ពី Google Flow ឬ Gemini):",
+    "📝 ដាក់ Timestamps & ស្គ្រីប (ពី Google Flow):",
     placeholder="[00:01 - 00:03] សួស្តី\n[00:05 - 00:08] ຍິນດີต้อนรับ...",
     height=180
 )
@@ -85,61 +87,15 @@ if uploaded_file is not None:
 
 if "output_video_path" not in st.session_state:
     st.session_state.output_video_path = None
-if "raw_text_result" not in st.session_state:
-    st.session_state.raw_text_result = ""
 
-# 🚀 ប៊ូតុងទី១៖ ឱ្យ Gemini API ຊួយវិភាគវីដេអូស្វ័យប្រវត្តិ
-if st.button("🤖 ឱ្យ Gemini AI វិភាគវីដេអូ និងបង្កើត Timestamps ស្វ័យប្រវត្តិ"):
-    if not api_key:
-        st.error("សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
-    elif uploaded_file is None:
-        st.warning("សូម Upload វីដេអូជាមុនសិន!")
-    else:
-        status_text = st.empty()
-        status_text.info("🔄 កំពុងវិភាគវីដេអូជាមួយ Gemini API...")
-        try:
-            tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
-            tfile.write(uploaded_file.read())
-            video_path = tfile.name
-
-            client = genai.Client(api_key=api_key)
-            video_file = client.files.upload(file=video_path)
-
-            prompt = (
-                "អ្នកគឺជាអ្នកបកប្រែប្រយោគតួអង្គភាពយន្តអាជីព។ "
-                "សូមទស្សនាវីដេអូនេះដោយផ្ចង់ស្មារតីលើបបូរមាត់តួអង្គ រួចកំណត់ពេលវេលា [MM:SS - MM:SS] ឱ្យបានត្រឹមត្រូវបំផុត "
-                "សម្រាប់រាល់ឃ្លាប្រយោគដែលតួអង្គនិយាយ ហើយបកប្រែជាភាសាខ្មែរតាមទម្រង់នេះដាច់ខាត៖\n"
-                "[00:05 - 00:08] សួស្ដី\n"
-                "[00:12 - 00:15] ប្រយោគបន្ទាប់...\n"
-                "ហាមសរសេរខុសពីទម្រង់កូដពេលវេលានេះ និងហាមពន្យល់រឿងក្រៅពីប្រយោគតួអង្គនិយាយ。"
-            )
-            
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=[video_file, prompt],
-            )
-            
-            st.session_state.raw_text_result = response.text
-            status_text.success("🎉 វិភាគវីដេអូរួចរាល់! សូមមើលលទ្ធផលខាងក្រោម ហើយចុចប៊ូតុងបង្កើតវីដេអូខាងក្រោម។")
-            
-            if os.path.exists(video_path):
-                os.remove(video_path)
-        except Exception as e:
-            st.error(f"មានបញ្ហាកើតឡើងជាមួយ API: {e}")
-
-if st.session_state.raw_text_result:
-    st.subheader("📝 Timestamps ដែលបានពី Gemini:")
-    flow_script = st.text_area("កែសម្រួល Timestamps បើចាំបាច់:", value=st.session_state.raw_text_result, height=180)
-
-# 🚀 ប៊ូតុងទី២៖ ចាប់ផ្តើមបញ្ចូលសំឡេង AI ចូលវីដេអូ
-if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង AI ចូលក្នុងវីដេអូ (Dubbing)"):
+if st.button("🚀 ចាប់ផ្តើមបង្កើតវីដេអូ (Smart Audio Mixing)"):
     if uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
     elif not flow_script.strip():
-        st.warning("សូម Paste ឬបំពេញ Timestamps ក្នុងប្រអប់ខាងលើជាមុនសិន!")
+        st.warning("សូម Paste ស្គ្រីប Timestamps ពី Google Flow ជាមុនសិន!")
     else:
         status_text = st.empty()
-        status_text.info("🔄 កំពុងបង្កើតសំឡេង AI និងផ្គុំចូលវីដេអូ...")
+        status_text.info("🔄 កំពុងបង្កើតសំឡេង AI និងកែច្នៃសំឡេងផ្ទៃខាងក្រោយ (Smart Ducking)...")
         
         try:
             tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
@@ -152,9 +108,12 @@ if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង 
                 st.error("❌ ទម្រង់ Timestamps មិនត្រឹមត្រូវទេ។ ឧទាហរណ៍៖ [00:01 - 00:03] សួស្តី")
             else:
                 video_clip = VideoFileClip(video_path)
-                temp_audio_files = []
-                audio_clips_to_composite = []
+                duration = video_clip.duration
                 
+                temp_audio_files = []
+                ai_audio_clips = []
+                
+                # បង្កើតសំឡេង AI តាម Timestamps
                 for item in dialogues:
                     chunk_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
                     temp_audio_files.append(chunk_audio_path)
@@ -163,13 +122,42 @@ if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង 
                     
                     if os.path.exists(chunk_audio_path) and os.path.getsize(chunk_audio_path) > 0:
                         audio_clip = AudioFileClip(chunk_audio_path)
-                        audio_clip = audio_clip.volumex(1.4).set_start(item["start"])
-                        audio_clips_to_composite.append(audio_clip)
+                        audio_clip = audio_clip.volumex(ai_volume).set_start(item["start"])
+                        ai_audio_clips.append(audio_clip)
 
-                status_text.info("🎬 កំពុងសរសេរហ្វាលវីដេអូចុងក្រោយ...")
+                status_text.info("🎬 កំពុងលាយបញ្ចូលគ្នារវាងសំឡេង AI និងសំឡេងបរិយាកាសដើម...")
                 
-                if audio_clips_to_composite:
-                    final_audio = CompositeAudioClip(audio_clips_to_composite).set_duration(video_clip.duration)
+                audio_mix_list = []
+                
+                # បើវីដេអូដើមមានសំឡេង យើងបង្កើត Custom Volume តាមពេលវេលា
+                if video_clip.audio is not None:
+                    original_audio = video_clip.audio
+                    
+                    # បង្កើត Function កំណត់សំឡេងដើមឱ្យខ្លាំងពេលអត់និយាយ និងខ្សោយពេលមាន AI និយាយ (Audio Ducking)
+                    def dynamic_volume(get_frame, t):
+                        # t គឺពេលវេលាបច្ចុប្បន្នជាវិនាទី
+                        is_speaking = False
+                        for d in dialogues:
+                            if d["start"] <= t <= d["end"]:
+                                is_speaking = True
+                                break
+                        
+                        vol = bg_volume_during_speech if is_speaking else bg_volume_normal
+                        frame = get_frame(t)
+                        return frame * vol
+
+                    # អនុវត្ត Dynamic Volume លើសំឡេងដើម
+                    processed_original_audio = original_audio.fl(dynamic_volume, keep_duration=True)
+                    audio_mix_list.append(processed_original_audio)
+                
+                # បន្ថែមសំឡេង AI ចូល
+                if ai_audio_clips:
+                    ai_composite = CompositeAudioClip(ai_audio_clips).set_duration(duration)
+                    audio_mix_list.append(ai_composite)
+                
+                # ផ្គុំសំឡេងទាំងអស់ចូលគ្នា
+                if audio_mix_list:
+                    final_audio = CompositeAudioClip(audio_mix_list).set_duration(duration)
                     final_video = video_clip.set_audio(final_audio)
                 else:
                     final_video = video_clip
@@ -186,7 +174,7 @@ if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង 
                 final_video.close()
                 
                 st.session_state.output_video_path = output_video_path
-                status_text.success("🎉 បង្កើតវីដេអូជោគជ័យ ១០០%!")
+                status_text.success("🎉 បង្កើតវីដេអូលាយសំឡេងឆ្លាតវៃជោគជ័យ ១០០%!")
                 
                 for p in temp_audio_files:
                     if os.path.exists(p): os.remove(p)
@@ -196,15 +184,15 @@ if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង 
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
 
 if st.session_state.output_video_path and os.path.exists(st.session_state.output_video_path):
-    st.success("🎉 វីដេអូបកប្រែរួចរាល់ជាស្ថាពរ!")
+    st.success("🎉 វីដេអូរួចរាល់ជាស្ថាពរ!")
     st.subheader("🎬 វីដេអូចុងក្រោយ:")
     st.video(st.session_state.output_video_path)
     
     with open(st.session_state.output_video_path, "rb") as file:
         st.download_button(
-            label="📥 ទាញយកវីដេអូដាប់ប៊ីង (Download Video)",
+            label="📥 ទាញយកវីដេអូចុងក្រោយ (Download Video)",
             data=file,
-            file_name="khmer_dubbed_video.mp4",
+            file_name="khmer_smart_dubbed.mp4",
             mime="video/mp4"
-                )
+        )
         
