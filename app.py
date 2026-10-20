@@ -1,32 +1,37 @@
 import streamlit as st
-from google import genai
 import asyncio
 import edge_tts
 import os
 import tempfile
 import re
 import cv2
-from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip
+from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip, Silence
 
 st.set_page_config(page_title="AI Pure Khmer Dubbing Pro", layout="centered")
 
-st.title("🎬 AI Pure Khmer Dubbing Pro")
-st.write("ប្រព័ន្ធដាប់ប៊ីងសុទ្ធ៖ បិទសំឡេងចិនចោលទាំងអស់ ទុកតែសំឡេង AI ខ្មែរនិយាយចំម៉ោងតួអង្គ និងស្ងាត់ពេលអត់មានអ្នកនិយាយ!")
+st.title("🎬 AI Pure Khmer Dubbing Pro (Auto-Sync)")
+st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូ៖ ສំឡេង AI ខ្មែរនិយាយចំម៉ោងតួអង្គ និងស្ងាត់ពេលអត់មានអ្នកនិយាយ (លែងបាច់កាត់តច្រើន)!")
 
-api_key = st.text_input("បញ្ចូល Gemini API Key របស់អ្នក:", type="password")
-
+# ជ្រើសរើសសំឡេង AI ស្រី ឬ ប្រុស
 voice_choice = st.selectbox(
     "ជ្រើសរើសសំឡេង Dubbing:",
-    ("ស្រី (Sreymom)", "ប្រុស (Piseth)")
+    ("ស្រី (Sreymom - ធម្មជាតិ)", "ប្រុស (Piseth - ធម្មជាតិ)")
 )
 
 voice_map = {
-    "ស្រី (Sreymom)": "km-KH-SreymomNeural",
-    "ប្រុស (Piseth)": "km-KH-PisethNeural"
+    "ស្រី (Sreymom - ធម្មជាតិ)": "km-KH-SreymomNeural",
+    "ប្រុស (Piseth - ធម្មជាតិ)": "km-KH-PisethNeural"
 }
 selected_voice = voice_map[voice_choice]
 
-uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ (MP4, MOV - ក្រោម ១៥នាទី):", type=["mp4", "mov", "avi"])
+uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូដើម (MP4, MOV):", type=["mp4", "mov", "avi"])
+
+# ប្រអប់សម្រាប់ដាក់ Timestamps និងអត្ថបទ (ពី Google Flow)
+flow_script = st.text_area(
+    "📝 ដាក់ Timestamps & ស្គ្រីប (ពី Google Flow):",
+    placeholder="[00:01 - 00:03] សួស្តី\n[00:05 - 00:08] ยินดีต้อนรับ...",
+    height=180
+)
 
 def get_video_duration(video_path):
     cap = cv2.VideoCapture(video_path)
@@ -36,10 +41,6 @@ def get_video_duration(video_path):
     if fps > 0:
         return frame_count / fps
     return 0
-
-async def generate_edge_tts(text, voice, output_path):
-    communicate = edge_tts.Communicate(text, voice)
-    await communicate.save(output_path)
 
 def time_to_seconds(time_str):
     parts = time_str.split(':')
@@ -71,121 +72,96 @@ def parse_timestamps(text):
             })
     return dialogues
 
+async def generate_edge_tts(text, voice, output_path):
+    # បន្ថែម Rate/Pitch បន្តិចបើចាំបាច់ ដើម្បីឱ្យសំឡេងស្តាប់ទៅធម្មជាតិមិនលឿនពេក
+    communicate = edge_tts.Communicate(text, voice)
+    await communicate.save(output_path)
+
 if uploaded_file is not None:
     st.video(uploaded_file)
 
 if "output_video_path" not in st.session_state:
     st.session_state.output_video_path = None
-if "raw_text_result" not in st.session_state:
-    st.session_state.raw_text_result = ""
 
-if st.button("ចាប់ផ្តើមដាប់ប៊ីងសុទ្ធ (Pure Khmer Dubbing) 🚀"):
-    if not api_key:
-        st.error("សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
-    elif uploaded_file is None:
+if st.button("🚀 ចាប់ផ្តើមបង្កើតវីដេអូដាក់សំឡេងចំម៉ោង (Auto-Sync Dub)"):
+    if uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
+    elif not flow_script.strip():
+        st.warning("សូម Paste ស្គ្រីប Timestamps ពី Google Flow ជាមុនសិន!")
     else:
         status_text = st.empty()
-        status_text.info("🔄 កំពុងវិភាគវីដេអូ និងទាញយក Timestamps...")
+        status_text.info("🔄 កំពុងបង្កើតសំឡេង AI និងតម្រៀបម៉ោងស្វ័យប្រវត្តិ...")
+        
         try:
             tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
             tfile.write(uploaded_file.read())
             video_path = tfile.name
+            video_duration = get_video_duration(video_path)
 
-            duration_sec = get_video_duration(video_path)
+            dialogues = parse_timestamps(flow_script)
             
-            if duration_sec > 900:
-                st.error("❌ វីដេអូរបស់អ្នកវែងពេក! សូមជ្រើសរើសវីដេអូដែលមានរយៈពេល ១៥នាទីចុះក្រោម。")
+            if not dialogues:
+                st.error("❌ ទម្រង់ Timestamps មិនត្រឹមត្រូវទេ។ ឧទាហរណ៍៖ [00:01 - 00:03] សួស្តី")
             else:
-                client = genai.Client(api_key=api_key)
-                video_file = client.files.upload(file=video_path)
+                video_clip = VideoFileClip(video_path)
+                temp_audio_files = []
+                audio_clips_to_composite = []
+                
+                for item in dialogues:
+                    chunk_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
+                    temp_audio_files.append(chunk_audio_path)
+                    
+                    # បង្កើតសំឡេងតាម Edge-TTS
+                    asyncio.run(generate_edge_tts(item["text"], selected_voice, chunk_audio_path))
+                    
+                    if os.path.exists(chunk_audio_path) and os.path.getsize(chunk_audio_path) > 0:
+                        audio_clip = AudioFileClip(chunk_audio_path)
+                        
+                        # ការពារកុំឱ្យសំឡេងវែងពេកលើសម៉ោងកំណត់ (Stretch/Speed adjustment បើចាំបាច់ ឬកំណត់ Start ឱ្យចំម៉ោង)
+                        audio_clip = audio_clip.volumex(1.4).set_start(item["start"])
+                        audio_clips_to_composite.append(audio_clip)
 
-                prompt = (
-                    "អ្នកគឺជាអ្នកបកប្រែប្រយោគតួអង្គភាពយន្តអាជីព។ "
-                    "សូមទស្សនាវីដេអូនេះដោយផ្ចង់ស្មារតីលើបបូរមាត់តួអង្គ រួចកំណត់ពេលវេលា [MM:SS - MM:SS] ឱ្យបានត្រឹមត្រូវបំផុត "
-                    "សម្រាប់រាល់ឃ្លាប្រយោគដែលតួអង្គនិយាយ ហើយបកប្រែជាភាសាខ្មែរតាមទម្រង់នេះដាច់ខាត៖\n"
-                    "[00:05 - 00:08] សួស្ដី\n"
-                    "[00:12 - 00:15] ប្រយោគបន្ទាប់...\n"
-                    "ហាមសរសេរខុសពីទម្រង់កូដពេលវេលានេះ និងហាមពន្យល់រឿងក្រៅពីប្រយោគតួអង្គនិយាយ。"
-                )
+                status_text.info("🎬 កំពុងផ្គុំសំឡេងចូលវីដេអូ និងបិទសំឡេងដើម...")
                 
-                response = client.models.generate_content(
-                    model='gemini-3.8-flash',
-                    contents=[video_file, prompt],
-                )
-                
-                st.session_state.raw_text_result = response.text
-                dialogues = parse_timestamps(st.session_state.raw_text_result)
-                
-                if not dialogues:
-                    st.error("❌ រកមិនឃើញកូដពេលវេលាត្រឹមត្រូវទេ។ សូមព្យាយាមម្ដងទៀត។")
+                if audio_clips_to_composite:
+                    # បង្កើត Composite Audio ឱ្យស្មើនឹងរយៈពេលវីដេអូ ធ្វើឱ្យកន្លែងអត់មាននិយាយស្ងាត់ល្អ
+                    final_audio = CompositeAudioClip(audio_clips_to_composite).set_duration(video_clip.duration)
+                    final_video = video_clip.set_audio(final_audio)
                 else:
-                    status_text.info(f"🎙️ រកឃើញប្រយោគចំនួន {len(dialogues)} កំពុងបង្កើតសំឡេង AI...")
+                    final_video = video_clip
                     
-                    video_clip = VideoFileClip(video_path)
-                    temp_audio_files = []
-                    audio_clips_to_composite = []
-                    
-                    for item in dialogues:
-                        chunk_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
-                        temp_audio_files.append(chunk_audio_path)
-                        
-                        asyncio.run(generate_edge_tts(item["text"], selected_voice, chunk_audio_path))
-                        
-                        if os.path.exists(chunk_audio_path) and os.path.getsize(chunk_audio_path) > 0:
-                            audio_clip = AudioFileClip(chunk_audio_path)
-                            # កំណត់ទីតាំងចាប់ផ្ដើម និងកម្រិតសំឡេងឱ្យច្បាស់ល្អ
-                            audio_clip = audio_clip.volumex(1.5).set_start(item["start"])
-                            audio_clips_to_composite.append(audio_clip)
-
-                    status_text.info("🎬 កំពុងផ្គុំសំឡេង AI សុទ្ធ និងសរសេរវីដេអូចុងក្រោយ...")
-                    
-                    if audio_clips_to_composite:
-                        # បង្កើត CompositeAudioClip និងកំណត់ Duration ឱ្យស្មើនឹងវីដេអូដើម
-                        final_audio = CompositeAudioClip(audio_clips_to_composite).set_duration(video_clip.duration)
-                        final_video = video_clip.set_audio(final_audio)
-                    else:
-                        final_video = video_clip
-                        
-                    output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
-                    # បង្គាប់ឱ្យសរសេរ Audio Codec ជា aac ធានាថាចេញសំឡេង ១០០%
-                    final_video.write_videofile(
-                        output_video_path, 
-                        codec="libx264", 
-                        audio_codec="aac", 
-                        fps=video_clip.fps,
-                        preset="medium"
-                    )
-                    
-                    video_clip.close()
-                    final_video.close()
-                    
-                    st.session_state.output_video_path = output_video_path
-                    status_text.success("🎉 ការបង្កើតវីដេអូស៊េរីស្អាត (Pure Khmer Dub) បានសម្រេចជោគជ័យ ១០០%!")
-                    
-                    for p in temp_audio_files:
-                        if os.path.exists(p):
-                            os.remove(p)
-                    if os.path.exists(video_path):
-                        os.remove(video_path)
+                output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
+                final_video.write_videofile(
+                    output_video_path, 
+                    codec="libx264", 
+                    audio_codec="aac", 
+                    fps=video_clip.fps
+                )
+                
+                video_clip.close()
+                final_video.close()
+                
+                st.session_state.output_video_path = output_video_path
+                status_text.success("🎉 បង្កើតវីដេអូដាប់ប៊ីងចំម៉ោងជោគជ័យ ១០០%!")
+                
+                # លុបហ្វាល Temp ទុកកន្លែងទំនេរ
+                for p in temp_audio_files:
+                    if os.path.exists(p): os.remove(p)
+                if os.path.exists(video_path): os.remove(video_path)
 
         except Exception as e:
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
 
-if st.session_state.raw_text_result:
-    st.subheader("📝 កូដពេលវេលា និងអត្ថបទបកប្រែ:")
-    st.text_area("Timestamps & Text:", st.session_state.raw_text_result, height=200)
-
 if st.session_state.output_video_path and os.path.exists(st.session_state.output_video_path):
     st.success("🎉 វីដេអូបកប្រែរួចរាល់ជាស្ថាពរ!")
-    st.subheader("🎬 វីដេអូចុងក្រោយ:")
+    st.subheader("🎬 វីដេអូចុងក្រោយ (លឺសំឡេង AI ខ្មែរចំម៉ោង និងស្ងាត់ពេលអត់មាននិយាយ):")
     st.video(st.session_state.output_video_path)
     
     with open(st.session_state.output_video_path, "rb") as file:
         st.download_button(
-            label="📥 ទាញយកវីដេអូ (Pure Khmer Dubbed Video)",
+            label="📥 ទាញយកវីដេអូចុងក្រោយ (Download Video)",
             data=file,
-            file_name="pure_khmer_dubbed.mp4",
+            file_name="khmer_dubbed_synced.mp4",
             mime="video/mp4"
-)
+                )
         
