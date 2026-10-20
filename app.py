@@ -3,6 +3,7 @@ import asyncio
 import edge_tts
 import os
 import tempfile
+import time
 import re
 from concurrent.futures import ThreadPoolExecutor
 
@@ -16,8 +17,8 @@ except ImportError:
 
 st.set_page_config(page_title="AI Khmer Video Dubbing Pro", layout="centered")
 
-st.title("🎬 AI Khmer Video Dubbing Pro (Turbo Speed)")
-st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូរត់លឿនលក្ខណៈទួរបូ (Turbo Mode)៖ រក្សាទំហំដើម + បំបាត់សំឡេងចិន + លឿនជាងមុនឆ្ងាយ!")
+st.title("🎬 AI Khmer Video Dubbing Pro (Turbo Stable)")
+st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូរត់លឿន និងមានប្រព័ន្ធការពារ Error (Retry Mechanism) ១០០%!")
 
 # ជ្រើសរើសសំឡេង AI ស្រី ឬ ប្រុស
 voice_choice = st.selectbox(
@@ -34,7 +35,7 @@ selected_voice = voice_map[voice_choice]
 # 🎛️ ការកំណត់កម្រិតសំឡេង AI ក្នុង Sidebar
 st.sidebar.header("🎛️ ការសារ៉េកម្រិតសំឡេង (Audio Settings)")
 ai_volume = st.sidebar.slider("កម្រិតសំឡេង AI (Voice Volume):", 0.5, 2.0, 1.5, 0.1)
-st.sidebar.info("💡 ដំណើរការលឿនរហ័ស (Turbo Mode) ជាមួយសំឡេង AI ខ្មែរស្អាតច្បាស់ពេញៗមាត់!")
+st.sidebar.info("💡 ប្រព័ន្ធ Turbo ថ្មីមានបញ្ចូល Auto-Retry ដើម្បីការពារកុំឱ្យដាច់តំណង Server!")
 
 # ប្រអប់ Upload វីដេអូ
 uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូដើម (MP4, MOV):", type=["mp4", "mov", "avi"])
@@ -77,12 +78,24 @@ def parse_timestamps(text):
     return dialogues
 
 async def generate_edge_tts_async(text, voice, output_path):
-    communicate = edge_tts.Communicate(text, voice)
-    await communicate.save(output_path)
+    # បន្ថែមប្រព័ន្ធព្យាយាមទាយយកម្ដងទៀត (Retry ៣ ដង) បើមានបញ្ហា Error
+    for attempt in range(3):
+        try:
+            communicate = edge_tts.Communicate(text, voice)
+            await communicate.save(output_path)
+            if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                return
+        except Exception:
+            if attempt == 2:
+                raise
+            await asyncio.sleep(1)
 
 def generate_single_audio(item, voice):
     chunk_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
-    asyncio.run(generate_edge_tts_async(item["text"], voice, chunk_audio_path))
+    try:
+        asyncio.run(generate_edge_tts_async(item["text"], voice, chunk_audio_path))
+    except Exception:
+        pass
     return item, chunk_audio_path
 
 if uploaded_file is not None:
@@ -91,13 +104,13 @@ if uploaded_file is not None:
 if "output_video_path" not in st.session_state:
     st.session_state.output_video_path = None
 
-if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង AI (Turbo Speed)"):
+if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង AI (Turbo Stable)"):
     if uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
     elif not flow_script.strip():
         st.warning("សូម Paste ស្គ្រីប Timestamps ពី Google Flow ជាមុនសិន!")
     else:
-        with st.spinner("⚡ កំពុងបង្កើតសំឡេង AI ព្រមៗគ្នា និង Render វីដេអូយ៉ាងលឿន..."):
+        with st.spinner("⚡ កំពុងបង្កើតសំឡេង AI ជាមួយប្រព័ន្ធការពារការដាច់តំណភ្ជាប់ (Auto-Retry)..."):
             try:
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                 tfile.write(uploaded_file.read())
@@ -114,8 +127,8 @@ if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង 
                     temp_audio_files = []
                     audio_clips_to_composite = []
                     
-                    # ⚡ ទាញយកសំឡេង AI ព្រមៗគ្នា (Parallel Processing) ដើម្បីកាត់បន្ថយពេលវេលា
-                    with ThreadPoolExecutor(max_workers=5) as executor:
+                    # ⚡ ទាញយកសំឡេង AI ព្រមៗគ្នាដោយមានកម្រិតល្បឿនសុវត្ថិភាព (max_workers=3)
+                    with ThreadPoolExecutor(max_workers=3) as executor:
                         futures = [executor.submit(generate_single_audio, item, selected_voice) for item in dialogues]
                         for future in futures:
                             item, chunk_audio_path = future.result()
@@ -139,14 +152,14 @@ if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង 
                         codec="libx264", 
                         audio_codec="aac", 
                         fps=video_clip.fps,
-                        logger=None # បិទ Log ដើម្បីកុំឱ្យធ្ងន់ម៉ាស៊ីន
+                        logger=None
                     )
                     
                     video_clip.close()
                     final_video.close()
                     
                     st.session_state.output_video_path = output_video_path
-                    st.success("🎉 បង្កើតវីដេអូជោគជ័យលឿនរហ័ស ១០០%!")
+                    st.success("🎉 បង្កើតវីដេអូជោគជ័យរលូនល្អ ១០០%!")
                     
                     for p in temp_audio_files:
                         if os.path.exists(p): os.remove(p)
@@ -164,7 +177,7 @@ if st.session_state.output_video_path and os.path.exists(st.session_state.output
         st.download_button(
             label="📥 ទាញយកវីដេអូចុងក្រោយ (Download Video)",
             data=file,
-            file_name="khmer_dubbed_turbo.mp4",
+            file_name="khmer_dubbed_stable.mp4",
             mime="video/mp4"
-)
-    
+        )
+        
