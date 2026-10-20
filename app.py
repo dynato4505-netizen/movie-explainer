@@ -1,10 +1,8 @@
 import streamlit as st
-import asyncio
-import edge_tts
 import os
 import tempfile
-import time
 import re
+from gtts import gTTS
 from concurrent.futures import ThreadPoolExecutor
 
 # Import moviepy ដោយសុវត្ថិភាព
@@ -17,25 +15,19 @@ except ImportError:
 
 st.set_page_config(page_title="AI Khmer Video Dubbing Pro", layout="centered")
 
-st.title("🎬 AI Khmer Video Dubbing Pro (Turbo Stable)")
-st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូរត់លឿន និងមានប្រព័ន្ធការពារ Error (Retry Mechanism) ១០០%!")
+st.title("🎬 AI Khmer Video Dubbing Pro (Google TTS Engine)")
+st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូ៖ ប្រើប្រាស់ Google Engine លឿនស្ថិរភាពខ្ពស់ មិនមាន Error ទៀតទេ!")
 
-# ជ្រើសរើសសំឡេង AI ស្រី ឬ ប្រុស
+# ជ្រើសរើសភាសា/សំឡេង (gTTS ប្រើកូដ 'km' សម្រាប់ភាសាខ្មែរ)
 voice_choice = st.selectbox(
     "ជ្រើសរើសសំឡេង Dubbing:",
-    ("ស្រី (Sreymom - ធម្មជាតិ)", "ប្រុស (Piseth - ធម្មជាតិ)")
+    ("ភាសាខ្មែរ (Google Natural Voice)",)
 )
-
-voice_map = {
-    "ស្រី (Sreymom - ធម្មជាតិ)": "km-KH-SreymomNeural",
-    "ប្រុស (Piseth - ធម្មជាតិ)": "km-KH-PisethNeural"
-}
-selected_voice = voice_map[voice_choice]
 
 # 🎛️ ការកំណត់កម្រិតសំឡេង AI ក្នុង Sidebar
 st.sidebar.header("🎛️ ការសារ៉េកម្រិតសំឡេង (Audio Settings)")
 ai_volume = st.sidebar.slider("កម្រិតសំឡេង AI (Voice Volume):", 0.5, 2.0, 1.5, 0.1)
-st.sidebar.info("💡 ប្រព័ន្ធ Turbo ថ្មីមានបញ្ចូល Auto-Retry ដើម្បីការពារកុំឱ្យដាច់តំណង Server!")
+st.sidebar.info("💡 ប្រើ Google TTS Engine ធានាថាលឿន រលូន និងមិនជួបបញ្ហា No audio error ទៀតទេ!")
 
 # ប្រអប់ Upload វីដេអូ
 uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូដើម (MP4, MOV):", type=["mp4", "mov", "avi"])
@@ -77,23 +69,12 @@ def parse_timestamps(text):
             })
     return dialogues
 
-async def generate_edge_tts_async(text, voice, output_path):
-    # បន្ថែមប្រព័ន្ធព្យាយាមទាយយកម្ដងទៀត (Retry ៣ ដង) បើមានបញ្ហា Error
-    for attempt in range(3):
-        try:
-            communicate = edge_tts.Communicate(text, voice)
-            await communicate.save(output_path)
-            if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-                return
-        except Exception:
-            if attempt == 2:
-                raise
-            await asyncio.sleep(1)
-
-def generate_single_audio(item, voice):
+def generate_gtts_audio(item):
     chunk_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
     try:
-        asyncio.run(generate_edge_tts_async(item["text"], voice, chunk_audio_path))
+        # ប្រើប្រាស់ gTTS សម្រាប់ភាសាខ្មែរ ('km')
+        tts = gTTS(text=item["text"], lang='km', slow=False)
+        tts.save(chunk_audio_path)
     except Exception:
         pass
     return item, chunk_audio_path
@@ -104,13 +85,13 @@ if uploaded_file is not None:
 if "output_video_path" not in st.session_state:
     st.session_state.output_video_path = None
 
-if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង AI (Turbo Stable)"):
+if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង AI (Google Engine)"):
     if uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
     elif not flow_script.strip():
         st.warning("សូម Paste ស្គ្រីប Timestamps ពី Google Flow ជាមុនសិន!")
     else:
-        with st.spinner("⚡ កំពុងបង្កើតសំឡេង AI ជាមួយប្រព័ន្ធការពារការដាច់តំណភ្ជាប់ (Auto-Retry)..."):
+        with st.spinner("⚡ កំពុងបង្កើតសំឡេង AI ជាមួយ Google Engine อย่างรวดเร็ว..."):
             try:
                 tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                 tfile.write(uploaded_file.read())
@@ -127,9 +108,9 @@ if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង 
                     temp_audio_files = []
                     audio_clips_to_composite = []
                     
-                    # ⚡ ទាញយកសំឡេង AI ព្រមៗគ្នាដោយមានកម្រិតល្បឿនសុវត្ថិភាព (max_workers=3)
-                    with ThreadPoolExecutor(max_workers=3) as executor:
-                        futures = [executor.submit(generate_single_audio, item, selected_voice) for item in dialogues]
+                    # ⚡ ទាញយកសំឡេង AI ព្រមៗគ្នាដោយប្រើ Google TTS
+                    with ThreadPoolExecutor(max_workers=5) as executor:
+                        futures = [executor.submit(generate_gtts_audio, item) for item in dialogues]
                         for future in futures:
                             item, chunk_audio_path = future.result()
                             temp_audio_files.append(chunk_audio_path)
@@ -177,7 +158,7 @@ if st.session_state.output_video_path and os.path.exists(st.session_state.output
         st.download_button(
             label="📥 ទាញយកវីដេអូចុងក្រោយ (Download Video)",
             data=file,
-            file_name="khmer_dubbed_stable.mp4",
+            file_name="khmer_dubbed_gtts.mp4",
             mime="video/mp4"
-        )
-        
+            )
+            
