@@ -17,8 +17,8 @@ except ImportError:
 
 st.set_page_config(page_title="AI Khmer Video Dubbing Pro", layout="centered")
 
-st.title("🎬 AI Khmer Video Dubbing Pro (Smart Background Audio)")
-st.write("ប្រព័ន្ធដាប់ប៊ីង៖ រក្សាសំឡេងតន្ត្រី/បរិយាកាសដើមនៅកន្លែងតួអង្គអត់និយាយ និងដាក់សំឡេង AI ពេលតួអង្គនិយាយ!")
+st.title("🎬 AI Khmer Video Dubbing Pro (9:16 & Smart Audio)")
+st.write("ប្រព័ន្ធដាប់ប៊ីង៖ ប្តូរទំហំវីដេអូជា 9:16 ស្វ័យប្រវត្តិ + រក្សាសំឡេងបរិយាកាស និងសំឡេង AI ឆ្លាតវៃ!")
 
 # ជ្រើសរើសសំឡេង AI ស្រី ឬ ប្រុស
 voice_choice = st.selectbox(
@@ -32,8 +32,13 @@ voice_map = {
 }
 selected_voice = voice_map[voice_choice]
 
-# 🎛️ ការកំណត់កម្រិតសំឡេង
-st.sidebar.header("🎛️ កម្រិតសំឡេង (Smart Audio Mixer)")
+# 🎛️ ការកំណត់ទំហំវីដេអូ និងកម្រិតសំឡេងក្នុង Sidebar
+st.sidebar.header("⚙️ ការកំណត់កម្រិត និងទំហំ (Settings)")
+resize_choice = st.sidebar.selectbox(
+    "ទំហំវីដេអូចុងក្រោយ (Aspect Ratio):",
+    ("ទំហំដើម (Original)", "កាត់ជាទំហំបញ្ឈរ 9:16 (TikTok/Reels)")
+)
+
 ai_volume = st.sidebar.slider("កម្រិតសំឡេង AI (Voice Volume):", 0.5, 2.0, 1.4, 0.1)
 bg_volume_during_speech = st.sidebar.slider("កម្រិតសំឡេងដើមពេលតួអង្គនិយាយ (Duck Volume):", 0.0, 0.5, 0.1, 0.05)
 bg_volume_normal = st.sidebar.slider("កម្រិតសំឡេងដើមពេលអត់មានអ្នកនិយាយ (Normal BG Volume):", 0.1, 1.0, 0.8, 0.05)
@@ -88,14 +93,14 @@ if uploaded_file is not None:
 if "output_video_path" not in st.session_state:
     st.session_state.output_video_path = None
 
-if st.button("🚀 ចាប់ផ្តើមបង្កើតវីដេអូ (Smart Audio Mixing)"):
+if st.button("🚀 ចាប់ផ្តើមបង្កើតវីដេអូ (9:16 + Smart Audio)"):
     if uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
     elif not flow_script.strip():
         st.warning("សូម Paste ស្គ្រីប Timestamps ពី Google Flow ជាមុនសិន!")
     else:
         status_text = st.empty()
-        status_text.info("🔄 កំពុងបង្កើតសំឡេង AI និងកែច្នៃសំឡេងផ្ទៃខាងក្រោយ (Smart Ducking)...")
+        status_text.info("🔄 កំពុងកាត់តទំហំ 9:16 និងបង្កើតសំឡេង AI ជាមួយ Smart Ducking...")
         
         try:
             tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
@@ -108,8 +113,23 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតវីដេអ�
                 st.error("❌ ទម្រង់ Timestamps មិនត្រឹមត្រូវទេ។ ឧទាហរណ៍៖ [00:01 - 00:03] សួស្តី")
             else:
                 video_clip = VideoFileClip(video_path)
-                duration = video_clip.duration
                 
+                # 🛠️ បើជ្រើសរើសទំហំ 9:16 កាត់កណ្តាលវីដេអូស្វ័យប្រវត្តិ (Auto Crop to 9:16)
+                if resize_choice == "កាត់ជាទំហំបញ្ឈរ 9:16 (TikTok/Reels)":
+                    w, h = video_clip.size
+                    target_w = int(h * 9 / 16)
+                    if target_w > w:
+                        target_w = w
+                        target_h = int(w * 16 / 9)
+                        x1 = 0
+                        y1 = int((h - target_h) / 2)
+                        video_clip = video_clip.crop(x1=x1, y1=y1, width=target_w, height=target_h)
+                    else:
+                        x1 = int((w - target_w) / 2)
+                        y1 = 0
+                        video_clip = video_clip.crop(x1=x1, y1=y1, width=target_w, height=h)
+
+                duration = video_clip.duration
                 temp_audio_files = []
                 ai_audio_clips = []
                 
@@ -125,28 +145,24 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតវីដេអ�
                         audio_clip = audio_clip.volumex(ai_volume).set_start(item["start"])
                         ai_audio_clips.append(audio_clip)
 
-                status_text.info("🎬 កំពុងលាយបញ្ចូលគ្នារវាងសំឡេង AI និងសំឡេងបរិយាកាសដើម...")
+                status_text.info("🎬 កំពុងលាយសំឡេង និង Render វីដេអូចុងក្រោយ...")
                 
                 audio_mix_list = []
                 
-                # បើវីដេអូដើមមានសំឡេង យើងបង្កើត Custom Volume តាមពេលវេលា
+                # Smart Audio Ducking សម្រាប់សំឡេងដើម
                 if video_clip.audio is not None:
                     original_audio = video_clip.audio
                     
-                    # បង្កើត Function កំណត់សំឡេងដើមឱ្យខ្លាំងពេលអត់និយាយ និងខ្សោយពេលមាន AI និយាយ (Audio Ducking)
                     def dynamic_volume(get_frame, t):
-                        # t គឺពេលវេលាបច្ចុប្បន្នជាវិនាទី
                         is_speaking = False
                         for d in dialogues:
                             if d["start"] <= t <= d["end"]:
                                 is_speaking = True
                                 break
-                        
                         vol = bg_volume_during_speech if is_speaking else bg_volume_normal
                         frame = get_frame(t)
                         return frame * vol
 
-                    # អនុវត្ត Dynamic Volume លើសំឡេងដើម
                     processed_original_audio = original_audio.fl(dynamic_volume, keep_duration=True)
                     audio_mix_list.append(processed_original_audio)
                 
@@ -155,7 +171,6 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតវីដេអ�
                     ai_composite = CompositeAudioClip(ai_audio_clips).set_duration(duration)
                     audio_mix_list.append(ai_composite)
                 
-                # ផ្គុំសំឡេងទាំងអស់ចូលគ្នា
                 if audio_mix_list:
                     final_audio = CompositeAudioClip(audio_mix_list).set_duration(duration)
                     final_video = video_clip.set_audio(final_audio)
@@ -174,7 +189,7 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតវីដេអ�
                 final_video.close()
                 
                 st.session_state.output_video_path = output_video_path
-                status_text.success("🎉 បង្កើតវីដេអូលាយសំឡេងឆ្លាតវៃជោគជ័យ ១០០%!")
+                status_text.success("🎉 បង្កើតវីដេអូទំហំ 9:16 ជាមួយសំឡេងឆ្លាតវៃជោគជ័យ ១០០%!")
                 
                 for p in temp_audio_files:
                     if os.path.exists(p): os.remove(p)
@@ -190,9 +205,9 @@ if st.session_state.output_video_path and os.path.exists(st.session_state.output
     
     with open(st.session_state.output_video_path, "rb") as file:
         st.download_button(
-            label="📥 ទាញយកវីដេអូចុងក្រោយ (Download Video)",
+            label="📥 ទាញយកវីដេអូ 9:16 (Download Video)",
             data=file,
-            file_name="khmer_smart_dubbed.mp4",
+            file_name="khmer_dubbed_916.mp4",
             mime="video/mp4"
-        )
-        
+            )
+                
