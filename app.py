@@ -15,8 +15,8 @@ except ImportError:
 
 st.set_page_config(page_title="AI Khmer Video Dubbing Pro", layout="centered")
 
-st.title("🎬 AI Khmer Video Dubbing Pro (Clean AI Audio)")
-st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូ៖ ដាក់តែសំឡេង AI ខ្មែរ រក្សាទំហំវីដេអូដើម និងបិទសំឡេងចិនដើមទាំងស្រុង!")
+st.title("🎬 AI Khmer Video Dubbing Pro (Fast & Stable)")
+st.write("ប្រព័ន្ធដាប់ប៊ីងវីដេអូ៖ កូដលឿន រក្សាទំហំដើម និងគ្មានបញ្ហា Loop សាឡើងវិញ!")
 
 # ជ្រើសរើសសំឡេង AI ស្រី ឬ ប្រុស
 voice_choice = st.selectbox(
@@ -33,7 +33,7 @@ selected_voice = voice_map[voice_choice]
 # 🎛️ ការកំណត់កម្រិតសំឡេង AI ក្នុង Sidebar
 st.sidebar.header("🎛️ ការសារ៉េកម្រិតសំឡេង (Audio Settings)")
 ai_volume = st.sidebar.slider("កម្រិតសំឡេង AI (Voice Volume):", 0.5, 2.0, 1.5, 0.1)
-st.sidebar.info("💡 យកតែសំឡេង AI ខ្មែរសុទ្ធសាធ (សំឡេងចិនដើមត្រូវបានកាត់ផ្ដាច់ចេញទាំងស្រុងស្វ័យប្រវត្តិ)")
+st.sidebar.info("💡 យកតែសំឡេង AI ខ្មែរសុទ្ធសាធ (សំឡេងចិនដើមត្រូវបានកាត់ផ្ដាច់ចេញទាំងស្រុង)")
 
 # ប្រអប់ Upload វីដេអូ
 uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូដើម (MP4, MOV):", type=["mp4", "mov", "avi"])
@@ -85,72 +85,70 @@ if uploaded_file is not None:
 if "output_video_path" not in st.session_state:
     st.session_state.output_video_path = None
 
+# 🚀 ប៊ូតុងដំណើរការជាមួយ State Control ដើម្បីការពារការ Refresh ញឹកញាប់
 if st.button("🚀 ចាប់ផ្តើមបញ្ចូលសំឡេង AI ចូលក្នុងវីដេអូ"):
     if uploaded_file is None:
         st.warning("សូម Upload វីដេអូជាមុនសិន!")
     elif not flow_script.strip():
         st.warning("សូម Paste ស្គ្រីប Timestamps ពី Google Flow ជាមុនសិន!")
     else:
-        status_text = st.empty()
-        status_text.info("🔄 កំពុងបង្កើតសំឡេង AI និងកាត់សំឡេងដើមចេញ...")
-        
-        try:
-            tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
-            tfile.write(uploaded_file.read())
-            video_path = tfile.name
+        with st.spinner("🔄 កំពុងដំណើរការបង្កើតសំឡេង AI និង Render វីដេអូ... សូមរង់ចាំបន្តិច"):
+            try:
+                tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+                tfile.write(uploaded_file.read())
+                video_path = tfile.name
 
-            dialogues = parse_timestamps(flow_script)
-            
-            if not dialogues:
-                st.error("❌ ទម្រង់ Timestamps មិនត្រឹមត្រូវទេ។ ឧទាហរណ៍៖ [00:01 - 00:03] សួស្តី")
-            else:
-                video_clip = VideoFileClip(video_path)
-                duration = video_clip.duration
+                dialogues = parse_timestamps(flow_script)
                 
-                temp_audio_files = []
-                audio_clips_to_composite = []
-                
-                # បន្ថែមសំឡេង AI ចូលតាម Timestamps
-                for item in dialogues:
-                    chunk_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
-                    temp_audio_files.append(chunk_audio_path)
-                    
-                    asyncio.run(generate_edge_tts(item["text"], selected_voice, chunk_audio_path))
-                    
-                    if os.path.exists(chunk_audio_path) and os.path.getsize(chunk_audio_path) > 0:
-                        audio_clip = AudioFileClip(chunk_audio_path)
-                        audio_clip = audio_clip.volumex(ai_volume).set_start(item["start"])
-                        audio_clips_to_composite.append(audio_clip)
-
-                status_text.info("🎬 កំពុងដាក់សំឡេង AI សុទ្ធសាធចូលក្នុងវីដេអូ...")
-                
-                # ដាក់តែសំឡេង AI ចូល បិទសំឡេងដើមទាំងស្រុង (Clean Audio)
-                if audio_clips_to_composite:
-                    final_audio = CompositeAudioClip(audio_clips_to_composite).set_duration(duration)
-                    final_video = video_clip.set_audio(final_audio)
+                if not dialogues:
+                    st.error("❌ ទម្រង់ Timestamps មិនត្រឹមត្រូវទេ។ ឧទាហរណ៍៖ [00:01 - 00:03] សួស្តី")
                 else:
-                    final_video = video_clip.set_audio(None)
+                    video_clip = VideoFileClip(video_path)
+                    duration = video_clip.duration
                     
-                output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
-                final_video.write_videofile(
-                    output_video_path, 
-                    codec="libx264", 
-                    audio_codec="aac", 
-                    fps=video_clip.fps
-                )
-                
-                video_clip.close()
-                final_video.close()
-                
-                st.session_state.output_video_path = output_video_path
-                status_text.success("🎉 បង្កើតវីដេអូដាប់ប៊ីងស្អាតល្អជោគជ័យ ១០០%!")
-                
-                for p in temp_audio_files:
-                    if os.path.exists(p): os.remove(p)
-                if os.path.exists(video_path): os.remove(video_path)
+                    temp_audio_files = []
+                    audio_clips_to_composite = []
+                    
+                    # បន្ថែមសំឡេង AI ចូលតាម Timestamps
+                    for item in dialogues:
+                        chunk_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
+                        temp_audio_files.append(chunk_audio_path)
+                        
+                        asyncio.run(generate_edge_tts(item["text"], selected_voice, chunk_audio_path))
+                        
+                        if os.path.exists(chunk_audio_path) and os.path.getsize(chunk_audio_path) > 0:
+                            audio_clip = AudioFileClip(chunk_audio_path)
+                            audio_clip = audio_clip.volumex(ai_volume).set_start(item["start"])
+                            audio_clips_to_composite.append(audio_clip)
 
-        except Exception as e:
-            st.error(f"មានបញ្ហាកើតឡើង: {e}")
+                    # ដាក់តែសំឡេង AI ចូល បិទសំឡេងដើមទាំងស្រុង
+                    if audio_clips_to_composite:
+                        final_audio = CompositeAudioClip(audio_clips_to_composite).set_duration(duration)
+                        final_video = video_clip.set_audio(final_audio)
+                    else:
+                        final_video = video_clip.set_audio(None)
+                        
+                    output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
+                    final_video.write_videofile(
+                        output_video_path, 
+                        codec="libx264", 
+                        audio_codec="aac", 
+                        fps=video_clip.fps,
+                        logger=None # បិទ Log សាំញ៉ាំដើម្បីឱ្យ Render លឿនជាងមុន
+                    )
+                    
+                    video_clip.close()
+                    final_video.close()
+                    
+                    st.session_state.output_video_path = output_video_path
+                    st.success("🎉 បង្កើតវីដេអូដាប់ប៊ីងរួចរាល់ជោគជ័យ ១០០%!")
+                    
+                    for p in temp_audio_files:
+                        if os.path.exists(p): os.remove(p)
+                    if os.path.exists(video_path): os.remove(video_path)
+
+            except Exception as e:
+                st.error(f"មានបញ្ហាកើតឡើង: {e}")
 
 if st.session_state.output_video_path and os.path.exists(st.session_state.output_video_path):
     st.success("🎉 វីដេអូកែសម្រួលរួចរាល់ជាស្ថាពរ!")
@@ -163,5 +161,5 @@ if st.session_state.output_video_path and os.path.exists(st.session_state.output
             data=file,
             file_name="khmer_dubbed_clean.mp4",
             mime="video/mp4"
-        )
+)
             
