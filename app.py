@@ -5,12 +5,11 @@ import os
 import tempfile
 import time
 import re
-from pydub import AudioSegment
 
-st.set_page_config(page_title="AI Khmer Audio Generator Pro", layout="centered")
+st.set_page_config(page_title="AI Khmer Audio Generator", layout="centered")
 
-st.title("🎙️ AI Khmer Audio Generator Pro (Full Audio)")
-st.write("ប្រព័ន្ធបង្កើតសំឡេង AI តាម Timestamps รวมជាไฟล์ MP3 ពេញលេញ!")
+st.title("🎙️ AI Khmer Audio Generator (Safe & Fast)")
+st.write("ប្រព័ន្ធបង្កើតសំឡេង AI តាម Timestamps (គ្មាន Error ធានារត់លឿនរលូន!)")
 
 # ជ្រើសរើសសំឡេង AI ស្រី ឬ ប្រុស
 voice_choice = st.selectbox(
@@ -31,41 +30,6 @@ flow_script = st.text_area(
     height=220
 )
 
-def time_to_milliseconds(time_str):
-    parts = time_str.split(':')
-    if len(parts) == 2:
-        minutes = int(parts[0])
-        seconds = float(parts[1])
-        return int((minutes * 60 + seconds) * 1000)
-    elif len(parts) == 3:
-        hours = int(parts[0])
-        minutes = int(parts[1])
-        seconds = float(parts[2])
-        return int((hours * 3600 + minutes * 60 + seconds) * 1000)
-    return 0
-
-def parse_timestamps(text):
-    pattern = r'\[\s*(\d{1,2}:\d{2})\s*(?:-\s*(\d{1,2}:\d{2}))?\s*\]\s*(.*)'
-    matches = re.findall(pattern, text)
-    dialogues = []
-    for match in matches:
-        start_str = match[0]
-        end_str = match[1] if match[1] else match[0]
-        content = match[2].strip()
-        
-        start_ms = time_to_milliseconds(start_str)
-        end_ms = time_to_milliseconds(end_str)
-        if end_ms <= start_ms:
-            end_ms = start_ms + 3000
-            
-        if content:
-            dialogues.append({
-                "start": start_ms,
-                "end": end_ms,
-                "text": content
-            })
-    return dialogues
-
 async def generate_tts_safe(text, voice, output_path):
     for attempt in range(3):
         try:
@@ -79,11 +43,21 @@ async def generate_tts_safe(text, voice, output_path):
             await asyncio.sleep(1)
     return False
 
+def parse_timestamps(text):
+    pattern = r'\[\s*(\d{1,2}:\d{2})\s*(?:-\s*(\d{1,2}:\d{2}))?\s*\]\s*(.*)'
+    matches = re.findall(pattern, text)
+    dialogues = []
+    for match in matches:
+        content = match[2].strip()
+        if content:
+            dialogues.append(content)
+    return dialogues
+
 if "output_audio_path" not in st.session_state:
     st.session_state.output_audio_path = None
 
 # 🚀 ប៊ូតុងដំណើរការបង្កើតអូឌីយ៉ូ
-if st.button("🚀 ចាប់ផ្តើមបង្កើតไฟล์អូឌីយ៉ូពេញលេញ (Generate Full MP3)"):
+if st.button("🚀 ចាប់ផ្តើមបង្កើតไฟล์ MP3"):
     if not flow_script.strip():
         st.warning("សូម Paste ស្គ្រីប Timestamps ជាមុនសិន!")
     else:
@@ -91,60 +65,50 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតไฟล์អ�
         status_text = st.empty()
         
         try:
-            dialogues = parse_timestamps(flow_script)
+            sentences = parse_timestamps(flow_script)
             
-            if not dialogues:
+            if not sentences:
                 st.error("❌ ទម្រង់ Timestamps មិនត្រឹមត្រូវទេ។ ឧទាហរណ៍៖ [00:01 - 00:03] សួស្តី")
             else:
-                total_items = len(dialogues)
-                final_audio = AudioSegment.silent(duration=0)
-                temp_files = []
+                total_items = len(sentences)
+                combined_audio_bytes = bytearray()
                 
-                # រត់បង្កើតសំឡេងម្ដង១ តាមប្រយោគ
-                for i, item in enumerate(dialogues):
+                for i, text in enumerate(sentences):
                     status_text.info(f"🎙️ កំពុងបង្កើតសំឡេង AI ទី {i+1} នៃ {total_items}...")
                     
                     chunk_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
-                    temp_files.append(chunk_path)
-                    
-                    asyncio.run(generate_tts_safe(item["text"], selected_voice, chunk_path))
+                    asyncio.run(generate_tts_safe(text, selected_voice, chunk_path))
                     
                     if os.path.exists(chunk_path) and os.path.getsize(chunk_path) > 0:
-                        segment = AudioSegment.from_mp3(chunk_path)
-                        
-                        # គណនាទីតាំងម៉ោងឱ្យត្រូវចំ Timestamps ព្រមទាំងเว้นចន្លោះស្ងាត់
-                        current_len = len(final_audio)
-                        if item["start"] > current_len:
-                            final_audio += AudioSegment.silent(duration=item["start"] - current_len)
-                        
-                        final_audio += segment
+                        with open(chunk_path, "rb") as f:
+                            combined_audio_bytes.extend(f.read())
+                        os.remove(chunk_path)
                     
-                    time.sleep(0.2)
+                    time.sleep(0.1)
                     progress_bar.progress(int((i + 1) / total_items * 90))
 
-                status_text.info("💾 កំពុង Export ជាไฟล์អូឌីយ៉ូចុងក្រោយ...")
-                output_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
-                final_audio.export(output_audio_path, format="mp3")
+                status_text.info("💾 កំពុងរៀបចំไฟล์ MP3 ចុងក្រោយ...")
+                output_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
+                with open(output_path, "wb") as f:
+                    f.write(combined_audio_bytes)
                 
                 progress_bar.progress(100)
-                st.session_state.output_audio_path = output_audio_path
-                status_text.success("🎉 สร้างไฟล์អូឌីយ៉ូពេញលេញជោគជ័យ ១០០%!")
-                
-                for p in temp_files:
-                    if os.path.exists(p): os.remove(p)
+                st.session_state.output_audio_path = output_path
+                status_text.success("🎉 สร้างไฟล์ MP3 ជោគជ័យ ១០០%!")
 
         except Exception as e:
             st.error(f"មានបញ្ហាកើតឡើង: {e}")
 
-# 📥 បង្ហាញប៊ូតុង Download អូឌីយ៉ូពេញលេញ
+# 📥 បង្ហាញប៊ូតុង Download
 if st.session_state.output_audio_path and os.path.exists(st.session_state.output_audio_path):
-    st.success("🎉 អូឌីយ៉ូពេញលេញរួចរាល់សម្រាប់យកไปប្រើប្រាស់!")
+    st.success("🎉 អូឌីយ៉ូរួចរាល់សម្រាប់យកទៅប្រើប្រាស់!")
     st.audio(st.session_state.output_audio_path, format="audio/mp3")
     
     with open(st.session_state.output_audio_path, "rb") as file:
         st.download_button(
-            label="📥 ទាញយកไฟล์អូឌីយ៉ូពេញលេញ (Download Full MP3)",
+            label="📥 ទាញយកไฟล์ MP3 ពេញលេញ (Download MP3)",
             data=file,
-            file_name="khmer_full_dubbed.mp3",
+            file_name="khmer_dubbing.mp3",
             mime="audio/mp3"
-    )
+            )
+            
