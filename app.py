@@ -107,7 +107,8 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតไฟล์អ�
                     chunk_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
                     temp_files.append(chunk_path)
                     
-                    await generate_tts_safe(item["text"], selected_voice, chunk_path)
+                    # ប្រើ asyncio.run ដើម្បីកុំឱ្យติด SyntaxError เรื่อง await
+                    asyncio.run(generate_tts_safe(item["text"], selected_voice, chunk_path))
                     
                     if os.path.exists(chunk_path) and os.path.getsize(chunk_path) > 0:
                         segment = AudioSegment.from_mp3(chunk_path)
@@ -115,7 +116,6 @@ if st.button("🚀 ចាប់ផ្តើមបង្កើតไฟล์អ�
                         # គណនាទីតាំងម៉ោងឱ្យត្រូវចំ Timestamps เป๊ะ
                         current_len = len(final_audio)
                         if item["start"] > current_len:
-                            # បន្ថែមខ្យល់ស្ងាត់ (Silence) ឱ្យត្រូវម៉ោងគ្នា
                             final_audio += AudioSegment.silent(duration=item["start"] - current_len)
                         
                         final_audio += segment
@@ -148,5 +148,5 @@ if st.session_state.output_audio_path and os.path.exists(st.session_state.output
             data=file,
             file_name="khmer_dubbed_audio.mp3",
             mime="audio/mp3"
-        )
-        
+    )
+                             
