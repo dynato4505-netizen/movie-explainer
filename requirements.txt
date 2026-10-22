@@ -7,4 +7,8 @@ numpy
 Pillow
 requests
 moviepy
+streamlit
+edge-tts
+pydub
+pyaudioop
 
