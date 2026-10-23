@@ -72,12 +72,15 @@ with tab_video:
 
     st.markdown("---")
     st.subheader("📝 ស្គ្រីប Timestamps សម្រាប់បំលែងជាសំឡេង")
+    
+    # កែតម្រូវត្រង់នេះ៖ កំណត់ឱ្យប្រអប់ស្គ្រីបស្มើសូន្យ (ទទេស្អាត) តាមសំណើបង
     if "script_input" not in st.session_state:
-        st.session_state.script_input = "[00:00 - 00:03] សួស្តីអ្នកទាំងអស់គ្នា ថ្ងៃនេះយើងនាំយករឿងថ្មីមកជូន...\n[00:03 - 00:06] ព្រះចៅអធិរាជនិងពួកមន្ត្រីបាននាំគ្នាដឹកមាសប្រាក់រត់គេចខ្លួនបាត់ហើយ!"
+        st.session_state.script_input = ""
 
     st.session_state.script_input = st.text_area(
         "កែសម្រួលស្គ្រីប Timestamps នៅទីនេះ:",
         value=st.session_state.script_input,
+        placeholder="[00:00 - 00:03] បញ្ចូលស្គ្រីប Timestamps នៅទីនេះ...",
         height=180
     )
 
@@ -243,4 +246,4 @@ with tab_download:
         
         if st.button("📂 សូមជ្រើសរើសស្គ្រីប ឬវីដេអូជាមុនសិន"):
             st.info("💡 គន្លឹះ៖ សូមចូលទៅកាន់ផ្ទាំង «វីដេអូ & ស្គ្រីប» ដើម្បីចាប់ផ្តើម!")
-            
+    
