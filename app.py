@@ -3,14 +3,13 @@ import asyncio
 import edge_tts
 import os
 import tempfile
-import time
 import re
-import zipfile
 import io
+from moviepy.editor import VideoFileClip, AudioFileClip
 
 # 🌟 កំណត់ទម្រង់ទំព័រឱ្យធំទូលាយស្អាត (Wide Mode)
 st.set_page_config(
-    page_title="Khmer Video AI - បកប្រែវីដេអូ និងបង្កើតអក្សរ/សំឡេងខ្មែរ",
+    page_title="Khmer Video AI - កាត់វីដេអូ និងបញ្ចូលសំឡេង AI",
     page_icon="🎬",
     layout="wide"
 )
@@ -44,9 +43,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 📌 ចំណងជើងหลักของแอป
+# 📌 ចំណងជើងចម្បងរបស់แอป
 st.markdown("<h2 style='text-align: center; color: #a78bfa;'>🎬 Khmer Video AI</h2>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #94a3b8;'>បកប្រែវីដេអូ និងបង្កើតអក្សរ/សំឡេងខ្មែរ ដោយ AI</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8;'>កាត់វីដេអូ និងបញ្ចូលសំឡេង AI ខ្មែរ ដោយស្វ័យប្រវត្តិ</p>", unsafe_allow_html=True)
 
 # 🗂️ បែងចែកផ្ទាំង (Tabs)
 tab_video, tab_translate, tab_audio, tab_sub, tab_download, tab_recap = st.tabs([
@@ -61,93 +60,65 @@ tab_video, tab_translate, tab_audio, tab_sub, tab_download, tab_recap = st.tabs(
 # 🗄️ Session State Initialization
 if "script_input" not in st.session_state:
     st.session_state.script_input = ""
-if "zip_buffer" not in st.session_state:
-    st.session_state.zip_buffer = None
+if "uploaded_video" not in st.session_state:
+    st.session_state.uploaded_video = None
+if "generated_clips" not in st.session_state:
+    st.session_state.generated_clips = []
 if "recap_history" not in st.session_state:
     st.session_state.recap_history = []
 
 # -------------------------------------------------------------
-# 1. ផ្ទាំងវីដេអូ (Video Input & Resolution)
+# 1. ផ្ទាំងវីដេអូ (Video Input)
 # -------------------------------------------------------------
 with tab_video:
     st.subheader("🎬 បញ្ចូលវីដេអូ ឬតំណភ្ជាប់ (Link)")
-    
     input_method = st.radio("ជ្រើសរើសវិធីសាស្ត្របញ្ចូល:", ["📤 Upload", "🔗 Link"], horizontal=True)
     
     if input_method == "📤 Upload":
-        uploaded_video = st.file_uploader("បន្ថែមវីដេអូ (ជ្រើសរើសបានច្រើន)", type=["mp4", "mov", "mkv", "avi", "webm"])
-        if uploaded_video:
+        uploaded_file = st.file_uploader("បន្ថែមវីដេអូ", type=["mp4", "mov", "mkv", "avi", "webm"])
+        if uploaded_file:
+            st.session_state.uploaded_video = uploaded_file
             st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
-            st.video(uploaded_video)
+            st.video(uploaded_file)
     else:
-        video_url = st.text_input("🔗 ដាក់ Link វីដេអូ (YouTube, TikTok, ฯลฯ):")
-        if video_url:
-            st.info("បានទទួលតំណភ្ជាប់វីដេអូរួចរាល់។")
+        st.text_input("🔗 ដាក់ Link វីដេអូ (YouTube, TikTok, ฯលฯ):")
 
     st.markdown("---")
     st.subheader("📊 គុណភាពវីដេអូ (Resolution)")
-    resolution = st.radio(
-        "ជ្រើសរើសកម្រិតច្បាស់:",
-        ("⚡ លឿន 480p", "✨ ល្អ 720p", "💎 ខ្ពស់ (ដើម)"),
-        horizontal=True
-    )
+    st.radio("ជ្រើសរើសកម្រិតច្បាស់:", ("⚡ លឿន 480p", "✨ ល្អ 720p", "💎 ខ្ពស់ (ដើម)"), horizontal=True)
 
 # -------------------------------------------------------------
-# 2. ផ្ទាំងបកប្រែ (Translation & Gemini Settings)
+# 2. ផ្ទាំងបកប្រែ (Translation)
 # -------------------------------------------------------------
 with tab_translate:
-    st.subheader("🌐 ការកំណត់ម៉ាស៊ីនបកប្រែ (Translation Engine)")
-    
-    trans_engine = st.selectbox(
-        "ម៉ាស៊ីនបកប្រែ:",
-        ("✨ Gemini (ធម្មជាតិ តែមានកូតា)", "Google Translate Pro", "OpenAI GPT-4o")
-    )
-    
+    st.subheader("🌐 ការកំណត់ម៉ាស៊ីនបកប្រែ")
+    st.selectbox("ម៉ាស៊ីនបកប្រែ:", ("✨ Gemini (ធម្មជាតិ)", "Google Translate Pro", "OpenAI GPT-4o"))
     col_l1, col_l2 = st.columns(2)
     with col_l1:
-        source_lang = st.selectbox("ភាសាដើម (Source Language)", ["ស៊ុយអែត (Sv)", "អង់គ្លេស (En)", "ថៃ (Th)", "ចិន (Zh)"])
+        st.selectbox("ភាសាដើម", ["អង់គ្លេស (En)", "ថៃ (Th)", "ចិន (Zh)"])
     with col_l2:
-        target_lang = st.selectbox("បកប្រែទៅ (Target Language)", ["🇰🇭 ខ្មែរ (Khmer)"])
-
-    st.markdown("---")
-    st.subheader("⚙️ មុខងារបន្ថែមពេលបកប្រែ:")
-    opt_sub = st.checkbox("បង្កើតអក្សររက်ខ្មែរ (Subtitle)", value=True)
-    opt_dub = st.checkbox("បង្កើតសំឡេងអានខ្មែរ (Dubbing)", value=False)
-    opt_srt = st.checkbox("ទាញយកអក្សรជាឯកសារ (SRT)", value=False)
-    opt_book = st.checkbox("📖 ម៉ូដនិទានរឿង (កែអត្ថបទឱ្យល្វន់ដូចអ្នកនិទាន)", value=False)
-    opt_check = st.checkbox("✏️ ពិនិត្យ និងកែអត្ថបទមុនបង្កើតសំឡេង", value=True)
+        st.selectbox("បកប្រែទៅ", ["🇰🇭 ខ្មែរ (Khmer)"])
 
 # -------------------------------------------------------------
-# 3. ផ្ទាំងសំឡេង AI (Voice & Audio Settings)
+# 3. ផ្ទាំងសំឡេង និងកាត់វីដេអូ (Direct Video Output & Preview)
 # -------------------------------------------------------------
 with tab_audio:
-    st.subheader("🎙️ ជ្រើសរើសសំឡេងនិយាយ (Voice Dubbing)")
+    st.subheader("🎙️ កាត់វីដេអូ និងបញ្ចូលសំឡេង AI ជាមួយគ្នា")
     
-    voice_type = st.radio(
-        "សំឡេងនិយាយ:",
-        ("👩 ស្រី (Sreymom)", "👨 ប្រុស (Piseth)")
-    )
-    
+    voice_type = st.radio("សំឡេងនិយាយ:", ("👩 ស្រី (Sreymom)", "👨 ប្រុស (Piseth)"))
     selected_voice = "km-KH-SreymomNeural" if "ស្រី" in voice_type else "km-KH-PisethNeural"
 
     st.markdown("---")
-    st.checkbox("🎭 ឱ្យ AI ប្ដូរសំឡេងប្រុស/ស្រី តាមអ្នកនិយាយក្នុងវីដេអូ", value=True)
-    st.checkbox("🤪 ដាក់អារម្មណ៍ក្នុងសំឡេង (ខឹង ក្រៀមក្រំ សប្បាយ ភ័យ)", value=True)
-    st.checkbox("🔊 រ្សាវសំឡេងដើមក្នុងវីដេអូ (ពេលមាន Dubbing)", value=False)
-
-    st.markdown("---")
-    st.subheader("📝 ស្គ្រីប Timestamps សម្រាប់បំលែងជាអូឌីយ៉ូ")
     st.session_state.script_input = st.text_area(
-        "បញ្ចូលអត្ថបទ ឬ Timestamps (ឧទាហរណ៍: [00:00 - 00:03] សួស្តី...):",
+        "បញ្ចូល Timestamps និងអត្ថបទ (ឧទាហរណ៍: [00:00 - 00:05] សួស្តី...):",
         value=st.session_state.script_input,
         height=140
     )
 
-    # Edge-TTS Function
-    async def generate_tts_safe(text, voice, output_path, rate="+0%", pitch="+0Hz"):
+    async def generate_tts_safe(text, voice, output_path):
         for attempt in range(3):
             try:
-                communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
+                communicate = edge_tts.Communicate(text, voice)
                 await communicate.save(output_path)
                 if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
                     return True
@@ -157,98 +128,138 @@ with tab_audio:
                 await asyncio.sleep(1)
         return False
 
-    def parse_timestamps(text):
-        pattern = r'\[\s*(\d{1,2}:\d{2})\s*(?:-\s*(\d{1,2}:\d{2}))?\s*\]\s*(.*)'
+    def time_to_seconds(time_str):
+        parts = list(map(int, time_str.split(':')))
+        if len(parts) == 2:
+            return parts[0] * 60 + parts[1]
+        return parts[0]
+
+    def parse_timestamps_video(text):
+        pattern = r'\[\s*(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s*\]\s*(.*)'
         matches = re.findall(pattern, text)
         dialogues = []
         for match in matches:
-            start_str = match[0]
-            end_str = match[1] if match[1] else match[0]
-            content = match[2].strip()
+            start_str, end_str, content = match[0], match[1], match[2].strip()
             if content:
-                filename_safe = f"[{start_str} - {end_str}]".replace(":", "-")
-                dialogues.append({"time_label": filename_safe, "text": content})
+                dialogues.append({
+                    "start_sec": time_to_seconds(start_str),
+                    "end_sec": time_to_seconds(end_str),
+                    "time_label": f"[{start_str}-{end_str}]".replace(":", "-"),
+                    "text": content
+                })
         return dialogues
 
-    if st.button("🎙️ ចាប់ផ្តើមបង្កើតកញ្ចប់អូឌីយ៉ូ ZIP"):
+    if st.button("🎬 ចាប់ផ្តើមកាត់ និងបញ្ចូលសំឡេងទៅវីដេអូ (.mp4)"):
         script_text = st.session_state.script_input
+        uploaded_video_file = st.session_state.get("uploaded_video", None)
+        
         if not script_text.strip():
             st.warning("⚠️ សូមបញ្ចូលស្គ្រីប ឬ Timestamps ជាមុនសិន!")
+        elif not uploaded_video_file:
+            st.warning("⚠️ សូម Upload វីដេអូនៅផ្ទាំង «វីដេអូ» ជាមុនសិន!")
         else:
             progress_bar = st.progress(0)
             status_text = st.empty()
             
             try:
-                dialogues = parse_timestamps(script_text)
+                dialogues = parse_timestamps_video(script_text)
                 if not dialogues:
-                    st.error("❌ ទម្រង់ Timestamps មិនត្រឹមត្រូវទេ។ (ឧទាហរណ៍: [00:00 - 00:03] អត្ថបទ)")
+                    st.error("❌ ទម្រង់ Timestamps មិនត្រឹមត្រូវទេ។ (ឧទាហរណ៍: [00:00 - 00:05] អត្ថបទ)")
                 else:
-                    total_items = len(dialogues)
-                    zip_io = io.BytesIO()
+                    tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+                    tfile.write(uploaded_video_file.read())
+                    tfile.close()
                     
-                    with zipfile.ZipFile(zip_io, mode='w', compression=zipfile.ZIP_DEFLATED) as zipf:
-                        for i, item in enumerate(dialogues):
-                            status_text.info(f"🎙️ កំពុងបង្កើតសំឡេងទី {i+1} នៃ {total_items}...")
-                            chunk_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
-                            asyncio.run(generate_tts_safe(item["text"], selected_voice, chunk_path))
+                    total_items = len(dialogues)
+                    st.session_state.generated_clips = []
+                    
+                    for i, item in enumerate(dialogues):
+                        status_text.info(f"🎬 កំពុងកាត់ និងបញ្ចូលសំឡេងវីដេអូឃ្លីបទី {i+1} នៃ {total_items}...")
+                        
+                        audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
+                        asyncio.run(generate_tts_safe(item["text"], selected_voice, audio_path))
+                        
+                        output_video_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
+                        try:
+                            video_clip = VideoFileClip(tfile.name).subclip(item["start_sec"], item["end_sec"])
+                            audio_clip = AudioFileClip(audio_path)
+                            final_clip = video_clip.set_audio(audio_clip)
+                            final_clip.write_videofile(output_video_path, codec="libx264", audio_codec="aac", logger=None)
                             
-                            if os.path.exists(chunk_path) and os.path.getsize(chunk_path) > 0:
-                                arcname = f"{item['time_label']}.mp3"
-                                zipf.write(chunk_path, arcname=arcname)
-                                os.remove(chunk_path)
-                            
-                            time.sleep(0.05)
-                            progress_bar.progress(int((i + 1) / total_items * 100))
+                            if os.path.exists(output_video_path) and os.path.getsize(output_video_path) > 0:
+                                clip_name = f"video_clip_{i+1}_{item['time_label']}.mp4"
+                                with open(output_video_path, "rb") as vf:
+                                    clip_bytes = vf.read()
+                                st.session_state.generated_clips.append({
+                                    "name": clip_name,
+                                    "bytes": clip_bytes,
+                                    "time": item['time_label']
+                                })
+                                
+                            video_clip.close()
+                            audio_clip.close()
+                            final_clip.close()
+                        except Exception as sub_e:
+                            st.warning(f"រំលងវីដេអូទី {i+1} ៖ {sub_e}")
+                        
+                        if os.path.exists(audio_path): os.remove(audio_path)
+                        if os.path.exists(output_video_path): os.remove(output_video_path)
+                        
+                        progress_bar.progress(int((i + 1) / total_items * 100))
+                    
+                    if os.path.exists(tfile.name):
+                        os.remove(tfile.name)
 
-                    st.session_state.zip_buffer = zip_io.getvalue()
-                    status_text.success("🎉 បង្កើតកញ្ចប់អូឌីយ៉ូ ZIP ជោគជ័យ ១០០%!")
+                    status_text.success("🎉 កាត់វីដេអូ និងបញ្ចូលសំឡេង AI រួចរាល់! លទ្ធផលបង្ហាញនៅខាងក្រោម៖")
             except Exception as e:
                 st.error(f"មានបញ្ហាកើតឡើង: {e}")
 
+    # 📺 បង្ហាញវីដេអូឃ្លីប និងប៊ូតុង Download ផ្ទាល់
+    if st.session_state.get("generated_clips"):
+        st.markdown("---")
+        st.write("### 🎬 វីដេអូឃ្លីបដែលបានកាត់រួច (មើល និងទាញយកទីនេះ):")
+        for idx, clip in enumerate(st.session_state.generated_clips):
+            st.markdown(f"**ឃ្លីបទី {idx+1} — ម៉ោង: {clip['time']}**")
+            st.video(clip["bytes"])
+            st.download_button(
+                label=f"📥 ទាញយកឃ្លីបទី {idx+1} (.mp4)",
+                data=clip["bytes"],
+                file_name=clip["name"],
+                mime="video/mp4",
+                key=f"audio_tab_dl_{idx}"
+            )
+            st.markdown("---")
+
 # -------------------------------------------------------------
-# 4. ផ្ទាំងអក្សរ (Subtitle Styling & Font)
+# 4. ផ្ទាំងអក្សរ (Subtitle)
 # -------------------------------------------------------------
 with tab_sub:
     st.subheader("🔤 ការកំណត់រចនាប័ទ្មអក្សរ Subtitle")
-    
-    col_s1, col_s2 = st.columns(2)
-    with col_s1:
-        font_choice = st.selectbox("Font អក្សរ:", ("Battambang", "Siemreap", "Moul", "Bayon"))
-    with col_s2:
-        color_choice = st.selectbox("ពណ៌អក្សរ:", ("ស (White)", "លឿង (Yellow)", "ខៀវ (Blue)"))
-
-    col_s3, col_s4 = st.columns(2)
-    with col_s3:
-        bg_choice = st.selectbox("ផ្ទៃខាងក្រោយអក្សរ (Background):", ("គ្មាន", "ខ្មៅស្រទន់", "ពាក់កណ្តាលតម្លាភាព"))
-    with col_s4:
-        style_choice = st.selectbox("របៀបបង្ហាញអក្សរ:", ("ធម្មតា", "ដិត (Bold)", "មានគែមអក្សរ (Outline)"))
-
-    font_size = st.slider("ទំហំអក្សរ (Font Size)", 14, 40, 22, 1)
-    sub_count_line = st.slider("ចំនួនបន្ទាត់ក្នុងមួយផ្ទាំងអក្សរ", 1, 3, 2, 1)
+    st.selectbox("Font អក្សរ:", ("Battambang", "Siemreap", "Moul"))
+    st.slider("ទំហំអក្សរ", 14, 40, 22, 1)
 
 # -------------------------------------------------------------
 # 5. ផ្ទាំងទាញយក (Download Section)
 # -------------------------------------------------------------
 with tab_download:
-    st.subheader("📥 ទាញយកលទ្ធផលវីដេអូ ឬអូឌីយ៉ូ")
-    
-    if st.session_state.zip_buffer:
-        st.success("🎉 កញ្ចប់អូឌីយ៉ូតាម Timestamps រួចរាល់សម្រាប់ទាញយកហើយ!")
-        st.download_button(
-            label="📥 ទាញយកកញ្ចប់អូឌីយ៉ូទាំងអស់ (.ZIP)",
-            data=st.session_state.zip_buffer,
-            file_name="khmer_movie_audio_chunks.zip",
-            mime="application/zip"
-        )
+    st.subheader("📥 ទាញយកលទ្ធផលវីដេអូ")
+    if st.session_state.get("generated_clips"):
+        for idx, clip in enumerate(st.session_state.generated_clips):
+            st.markdown(f"**ឃ្លីបទី {idx+1} — ម៉ោង: {clip['time']}**")
+            st.download_button(
+                label=f"📥 ទាញយកឃ្លីបទី {idx+1} (.mp4)",
+                data=clip["bytes"],
+                file_name=clip["name"],
+                mime="video/mp4",
+                key=f"download_tab_dl_{idx}"
+            )
+            st.markdown("---")
     else:
-        st.info("មិនទាន់មានលទ្ធផលទេ! សូមបំពេញស្គ្រីបនៅផ្ទាំង «សំឡេង» ជាមុនសិន។")
+        st.info("មិនទាន់មានលទ្ធផលវីដេអូទេ! សូមបំពេញ Timestamps នៅផ្ទាំង «សំឡេង» ជាមុនសិន។")
 
 # -------------------------------------------------------------
 # 6. ផ្ទាំងរីដេអូម (Movie Recap History)
 # -------------------------------------------------------------
 with tab_recap:
-    st.subheader("🎞️ ប្រវត្តិរីដេអូម (Movie Recap History)")
-    st.markdown("<p style='color: #94a3b8;'>វីដេអូដែលបានបង្កើតរួចនឹងត្រូវបានរក្សាទុកដោយស្វ័យប្រវត្ត ហើយអ្នកប្រើប្រាស់អាចមើល/ទាញយកបាន។</p>", unsafe_allow_html=True)
-    
-    if not st.session_state.recap_history:
-        st.info("មិនទាន់មានវីដេអូក្នុងរីដេអូមទេ។")
+    st.subheader("🎞️ ប្រវត្តិរីដេអូម")
+    st.markdown("<p style='color: #94a3b8;'>វីដេអូដែលបានបង្កើតរួចនឹងត្រូវបានរក្សាទុកនៅទីនេះ។</p>", unsafe_allow_html=True)
