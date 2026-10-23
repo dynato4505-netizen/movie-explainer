@@ -15,7 +15,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 🎨 Custom CSS សម្រាប់ Dark Mode ដ៏ប្រណិត និងស៊ីគ្នាជាមួយ UI ក្នុងរូប
+# 🎨 Custom CSS សម្រាប់ Dark Mode ដ៏ប្រណិត
 st.markdown("""
     <style>
     .main {
@@ -48,7 +48,7 @@ st.markdown("""
 st.markdown("<h2 style='text-align: center; color: #a78bfa;'>🎬 Khmer Video AI</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #94a3b8;'>បកប្រែវីដេអូ និងបង្កើតអក្សរ/សំឡេងខ្មែរ ដោយ AI</p>", unsafe_allow_html=True)
 
-# 🗂️ បែងចែកផ្ទាំង (Tabs) តាមស្តង់ដារកម្មវិធីថ្មី
+# 🗂️ បែងចែកផ្ទាំង (Tabs)
 tab_video, tab_translate, tab_audio, tab_sub, tab_download, tab_recap = st.tabs([
     "🎬 វីដេអូ", 
     "🌐 បកប្រែ", 
@@ -132,7 +132,7 @@ with tab_audio:
 
     st.markdown("---")
     st.checkbox("🎭 ឱ្យ AI ប្ដូរសំឡេងប្រុស/ស្រី តាមអ្នកនិយាយក្នុងវីដេអូ", value=True)
-    st.checkbox("🤪 ដាក់អារម្មណ៍ក្នុងសំឡេង (ខឹង ក្រៀមក្រំ សប្បាយ កี้យ)", value=True)
+    st.checkbox("🤪 ដាក់អារម្មណ៍ក្នុងសំឡេង (ខឹង ក្រៀមក្រំ សប្បាយ ភ័យ)", value=True)
     st.checkbox("🔊 រ្សាវសំឡេងដើមក្នុងវីដេអូ (ពេលមាន Dubbing)", value=False)
 
     st.markdown("---")
@@ -226,15 +226,6 @@ with tab_sub:
     font_size = st.slider("ទំហំអក្សរ (Font Size)", 14, 40, 22, 1)
     sub_count_line = st.slider("ចំនួនបន្ទាត់ក្នុងមួយផ្ទាំងអក្សរ", 1, 3, 2, 1)
 
-    st.markdown("📍 **ទីតាំងអក្សរនៅលើវីដេអូ:**")
-    st.markdown("""
-        <div style='text-align: center; color: #a78bfa;'>
-            [ ↖️ លើឆ្វេង ] &nbsp; [ ⬆️ កណ្តាលលើ ] &nbsp; [ ↗️ លើស្តាំ ]<br>
-            [ ⬅️ កណ្តាលឆ្វេង ] &nbsp; [ 🔘 កណ្តាលចំ ] &nbsp; [ ➡️ កណ្តាលស្តាំ ]<br>
-            [ ↙️ ក្រោមឆ្វេង ] &nbsp; [ ⬇️ ក្រោមចំ (ពេញនិយម) ] &nbsp; [ ↘️ ក្រោមស្តាំ ]
-        </div>
-    """, unsafe_allow_html=True)
-
 # -------------------------------------------------------------
 # 5. ផ្ទាំងទាញយក (Download Section)
 # -------------------------------------------------------------
@@ -250,12 +241,7 @@ with tab_download:
             mime="application/zip"
         )
     else:
-        st.markdown("""
-            <div style='padding: 40px 20px; background-color: #1e293b; border-radius: 12px; text-align: center; border: 1px dashed #475569; margin-top: 20px;'>
-                <p style='color: #cbd5e1; font-size: 16px; margin-bottom: 10px;'>មិនទាន់មានលទ្ធផលទេ!</p>
-                <p style='color: #94a3b8; font-size: 14px;'>សូមបំពេញស្គ្រីប និងចុចបង្កើតអូឌីយ៉ូនៅផ្ទាំង <b>«សំឡេង»</b> ជាមុនសិន។</p>
-            </div>
-        """, unsafe_allow_html=True)
+        st.info("មិនទាន់មានលទ្ធផលទេ! សូមបំពេញស្គ្រីបនៅផ្ទាំង «សំឡេង» ជាមុនសិន។")
 
 # -------------------------------------------------------------
 # 6. ផ្ទាំងរីដេអូម (Movie Recap History)
@@ -265,9 +251,4 @@ with tab_recap:
     st.markdown("<p style='color: #94a3b8;'>វីដេអូដែលបានបង្កើតរួចនឹងត្រូវបានរក្សាទុកដោយស្វ័យប្រវត្ត ហើយអ្នកប្រើប្រាស់អាចមើល/ទាញយកបាន។</p>", unsafe_allow_html=True)
     
     if not st.session_state.recap_history:
-        st.markdown("""
-            <div style='padding: 40px 20px; background-color: #1e293b; border-radius: 12px; text-align: center; border: 1px dashed #475569; margin-top: 20px;'>
-                <p style='color: #cbd5e1; font-size: 16px;'>មិនទាន់មានវីដេអូក្នុងរីដេអូមទេ។ បង្កើតវីដេអូថ្មី វានឹងបង្ហាញនៅទីនេះដោយស្វ័យប្រវត្តិ។</p>
-            </div>
-        """, unsafe_allow_html=True)
-    ue
+        st.info("មិនទាន់មានវីដេអូក្នុងរីដេអូមទេ។")
