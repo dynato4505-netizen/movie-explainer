@@ -163,7 +163,6 @@ with tab_audio:
                 if not dialogues:
                     st.error("❌ ទម្រង់ Timestamps មិនត្រឹមត្រូវទេ។ (ឧទាហរណ៍: [00:00 - 00:05] អត្ថបទ)")
                 else:
-                    # Save uploaded video to temp file
                     tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                     tfile.write(uploaded_video_file.read())
                     tfile.close()
@@ -173,7 +172,7 @@ with tab_audio:
                     
                     audio_clips = []
                     if video_clip.audio is not None and keep_orig_audio:
-                        audio_clips.append(video_clip.audio.volumized(0.1)) # 10% volume for background
+                        audio_clips.append(video_clip.audio.volumized(0.1))
                     
                     total_items = len(dialogues)
                     temp_audio_files = []
@@ -200,7 +199,6 @@ with tab_audio:
                     with open(output_video_path, "rb") as f:
                         st.session_state.final_video_bytes = f.read()
                     
-                    # Cleanup
                     video_clip.close()
                     final_video.close()
                     if os.path.exists(tfile.name): os.remove(tfile.name)
@@ -212,7 +210,7 @@ with tab_audio:
             except Exception as e:
                 st.error(f"មានបញ្ហាកើតឡើង: {e}")
 
-    # 📺 បង្ហាញវីដេអូពេញ និងប៊ូតុង Download
+    # 📺 បង្ហាញវីដេអូពេញ និងប៊ូតុង Download (ដាក់ key ដាច់ដោយឡែក)
     if st.session_state.get("final_video_bytes"):
         st.markdown("---")
         st.write("### 🎬 លទ្ធផលវីដេអូពេញ (Full Video ជាមួយសំឡេង AI):")
@@ -221,7 +219,8 @@ with tab_audio:
             label="📥 ទាញយកវីដេអូពេញ (.mp4)",
             data=st.session_state.final_video_bytes,
             file_name="khmer_ai_full_dubbed_video.mp4",
-            mime="video/mp4"
+            mime="video/mp4",
+            key="audio_tab_download_btn"
         )
         st.markdown("---")
 
@@ -244,7 +243,8 @@ with tab_download:
             label="📥 ទាញយកវីដេអូពេញ (.mp4)",
             data=st.session_state.final_video_bytes,
             file_name="khmer_ai_full_dubbed_video.mp4",
-            mime="video/mp4"
+            mime="video/mp4",
+            key="download_tab_download_btn"
         )
     else:
         st.info("មិនទាន់មានវីដេអូទេ! សូមបំពេញ Timestamps នៅផ្ទាំង «សំឡេង» ជាមុនសិន។")
@@ -254,4 +254,4 @@ with tab_download:
 # -------------------------------------------------------------
 with tab_recap:
     st.subheader("🎞️ ប្រវត្តិរីដេអូម")
-    st.markdown("<p style='color: #94a3b8;'>វីដេអូที่បានបង្កើតរួចនឹងត្រូវបានរក្សាទុកនៅទីនេះ។</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8;'>វីដេអូដែលបានបង្កើតរួចនឹងត្រូវបានរក្សាទុកនៅទីនេះ។</p>", unsafe_allow_html=True)
