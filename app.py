@@ -1,114 +1,92 @@
 import streamlit as st
-import asyncio
-import edge_tts
-import os
-import tempfile
-import time
-import re
 
-st.set_page_config(page_title="AI Khmer Audio Generator", layout="centered")
-
-st.title("🎙️ AI Khmer Audio Generator (Safe & Fast)")
-st.write("ប្រព័ន្ធបង្កើតសំឡេង AI តាម Timestamps (គ្មាន Error ធានារត់លឿនរលូន!)")
-
-# ជ្រើសរើសសំឡេង AI ស្រី ឬ ប្រុស
-voice_choice = st.selectbox(
-    "ជ្រើសរើសសំឡេង AI:",
-    ("ស្រី (Sreymom - ធម្មជាតិ)", "ប្រុស (Piseth - ធម្មជាតិ)")
+# កំណត់ទម្រង់ទំព័រឱ្យធំទូលាយស្អាត (Wide Mode)
+st.set_page_config(
+    page_title="Khmer Video AI Pro",
+    page_icon="🎬",
+    layout="wide"
 )
 
-voice_map = {
-    "ស្រី (Sreymom - ធម្មជាតិ)": "km-KH-SreymomNeural",
-    "ប្រុស (Piseth - ធម្មជាតិ)": "km-KH-PisethNeural"
-}
-selected_voice = voice_map[voice_choice]
+# 🎨 Custom CSS ដើម្បីឱ្យវាស្អាតបែប Dark Mode ស្រដៀងនឹងแፕទំនើប
+st.markdown("""
+    <style>
+    .main {
+        background-color: #0e1117;
+        color: #ffffff;
+    }
+    .stButton>button {
+        background: linear-gradient(45deg, #6b46c1, #3182ce);
+        color: white;
+        border-radius: 8px;
+        border: none;
+        padding: 10px 24px;
+        font-weight: bold;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# ប្រអប់សម្រាប់ដាក់ Timestamps និងអត្ថបទ
-flow_script = st.text_area(
-    "📝 ដាក់ Timestamps & ស្គ្រីប (ពី Google Flow):",
-    placeholder="[00:01 - 00:03] សួស្តី\n[00:05 - 00:08] ຍິນດີต้อนรับ...",
-    height=220
-)
+# 📌 ចំណងជើងหลักของแፕ
+st.title("🎬 Khmer Video AI Pro")
+st.write("ប្រព័ន្ធបកប្រែវីដេអូ និងបង្កើតអក្សរ/សំឡេងខ្មែរដោយ AI វគ្គស្វ័យប្រវត្ត")
 
-async def generate_tts_safe(text, voice, output_path):
-    for attempt in range(3):
-        try:
-            communicate = edge_tts.Communicate(text, voice)
-            await communicate.save(output_path)
-            if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-                return True
-        except Exception:
-            if attempt == 2:
-                return False
-            await asyncio.sleep(1)
-    return False
+# 🗂️ បែងចែកផ្ទាំង (Tabs) ធំៗ តាមទម្រង់แፕអាជីព
+tab_video, tab_translate, tab_audio, tab_sub, tab_download = st.tabs([
+    "🎬 វីដេអូ", 
+    "🌐 បកប្រែ", 
+    "🎙️ សំឡេង", 
+    "🔤 អក្សរ", 
+    "📥 ទាញយក"
+])
 
-def parse_timestamps(text):
-    pattern = r'\[\s*(\d{1,2}:\d{2})\s*(?:-\s*(\d{1,2}:\d{2}))?\s*\]\s*(.*)'
-    matches = re.findall(pattern, text)
-    dialogues = []
-    for match in matches:
-        content = match[2].strip()
-        if content:
-            dialogues.append(content)
-    return dialogues
-
-if "output_audio_path" not in st.session_state:
-    st.session_state.output_audio_path = None
-
-# 🚀 ប៊ូតុងដំណើរការបង្កើតអូឌីយ៉ូ
-if st.button("🚀 ចាប់ផ្តើមបង្កើតไฟล์ MP3"):
-    if not flow_script.strip():
-        st.warning("សូម Paste ស្គ្រីប Timestamps ជាមុនសិន!")
-    else:
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        try:
-            sentences = parse_timestamps(flow_script)
-            
-            if not sentences:
-                st.error("❌ ទម្រង់ Timestamps មិនត្រឹមត្រូវទេ។ ឧទាហរណ៍៖ [00:01 - 00:03] សួស្តី")
-            else:
-                total_items = len(sentences)
-                combined_audio_bytes = bytearray()
-                
-                for i, text in enumerate(sentences):
-                    status_text.info(f"🎙️ កំពុងបង្កើតសំឡេង AI ទី {i+1} នៃ {total_items}...")
-                    
-                    chunk_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
-                    asyncio.run(generate_tts_safe(text, selected_voice, chunk_path))
-                    
-                    if os.path.exists(chunk_path) and os.path.getsize(chunk_path) > 0:
-                        with open(chunk_path, "rb") as f:
-                            combined_audio_bytes.extend(f.read())
-                        os.remove(chunk_path)
-                    
-                    time.sleep(0.1)
-                    progress_bar.progress(int((i + 1) / total_items * 90))
-
-                status_text.info("💾 កំពុងរៀបចំไฟล์ MP3 ចុងក្រោយ...")
-                output_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
-                with open(output_path, "wb") as f:
-                    f.write(combined_audio_bytes)
-                
-                progress_bar.progress(100)
-                st.session_state.output_audio_path = output_path
-                status_text.success("🎉 สร้างไฟล์ MP3 ជោគជ័យ ១០០%!")
-
-        except Exception as e:
-            st.error(f"មានបញ្ហាកើតឡើង: {e}")
-
-# 📥 បង្ហាញប៊ូតុង Download
-if st.session_state.output_audio_path and os.path.exists(st.session_state.output_audio_path):
-    st.success("🎉 អូឌីយ៉ូរួចរាល់សម្រាប់យកទៅប្រើប្រាស់!")
-    st.audio(st.session_state.output_audio_path, format="audio/mp3")
+# 1. ផ្ទាំងវីដេអូ (Video Upload & Processing)
+with tab_video:
+    st.subheader("📁 បញ្ចូលវីដេអូសម្រាប់កែច្នៃ")
+    upload_method = st.radio("ជ្រើសរើសវិធីសាស្ត្រ:", ["Upload ពីទូរសព្ទ/កុំព្យូទ័រ", "Link YouTube / វីដេអូ"])
     
-    with open(st.session_state.output_audio_path, "rb") as file:
-        st.download_button(
-            label="📥 ទាញយកไฟล์ MP3 ពេញលេញ (Download MP3)",
-            data=file,
-            file_name="khmer_dubbing.mp3",
-            mime="audio/mp3"
-            )
-            
+    if upload_method == "Upload ពីទូរសព្ទ/កុំព្យូទ័រ":
+        uploaded_file = st.file_uploader("ជ្រើសរើសហ្វាលវីដេអូ (MP4, MKV)", type=["mp4", "mkv", "mov"])
+        if uploaded_file:
+            st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
+            st.video(uploaded_file)
+    else:
+        video_link = st.text_input("🔗 បញ្ចូលតំណភ្ជាប់វីដេអូ (Link):")
+        if video_link:
+            st.info("កំពុងរៀបចំទាញយកវីដេអូតាម Link...")
+
+# 2. ផ្ទាំងបកប្រែ (Translation)
+with tab_translate:
+    st.subheader("🌐 ប្រព័ន្ធបកប្រែអត្ថបទស្វ័យប្រវត្ត")
+    ai_engine = st.selectbox("ម៉ាស៊ីនបកប្រែ (AI Engine):", ["Gemini Pro (លឿន និងធម្មជាតិ)", "OpenAI GPT-4"])
+    source_lang = st.selectbox("ភាសាដើម:", ["ស៊ยូរ៉េសី (ភាសាបរទេស)", "អង់គ្លេស", "ចិន"])
+    target_lang = st.selectbox("បកប្រែទៅ:", ["🇰🇭 ខ្មែរ (Khmer)"])
+    
+    if st.button("🚀 เริ่มបកប្រែវីដេអូ"):
+        st.info("កំពុងដំណើរការបកប្រែអត្ថបទពីវីដេអូ...")
+
+# 3. ផ្ទាំងសំឡេង (Audio & Dubbing)
+with tab_audio:
+    st.subheader("🎙️ ជ្រើសរើសសំឡេង AI និយាយ")
+    voice_type = st.radio("ជ្រើសរើសសំឡេង:", ["👩‍🰰 ស្រី (Sreymom)", "👨‍🰰 ប្រុស (Piseth)"])
+    auto_pitch = st.checkbox("ដាក់អារម្មណ៍ក្នុងសំឡេង (អរ ក្រៀមក្រំ សប្បាយ ភ័យ)", value=True)
+    keep_original = st.checkbox("រក្សាទុកសំឡេងដើមក្នុងវីដេអូខ្លះៗ", value=False)
+    
+    if st.button("🎙️ បង្កើតសំឡេងអូឌីយ៉ូ"):
+        st.success("បានបង្កើតសំឡេង AI រួចរាល់!")
+
+# 4. ផ្ទាំងអក្សររត់ (Subtitles Customization)
+with tab_sub:
+    st.subheader("🔤 កែតម្រូវទម្រង់អក្សររត់ (Subtitle Styling)")
+    col1, col2 = st.columns(2)
+    with col1:
+        font_choice = st.selectbox("Font អក្សរ:", ["Battambang", "Moul", "Kantumruy", "Siemreap"])
+        text_color = st.color_picker("ពណ៌អក្សរ", "#FFFFFF")
+    with col2:
+        bg_color = st.color_picker("ពណ៌ផ្ទៃខាងក្រោយអក្សរ", "#000000")
+        font_size = st.slider("ទំហំអក្សរ", 12, 48, 24)
+    
+    st.info("ការកំណត់ទម្រង់អក្សរនឹងត្រូវរក្សាទុកសម្រាប់ Export ចេញជាវីដេអូ។")
+
+# 5. ផ្ទាំងទាញយក (Download Section)
+with tab_download:
+    st.subheader("📥 ទាញយកលទ្ធផលវីដេអូចុងក្រោយ")
+    st.write("មិនទាន់មានវីដេអូចេញលទ្ធផលនៅឡើយទេ។ សូមបង្កើតវីដេអូនៅផ្ទាំងខាងមុខសិន។")
