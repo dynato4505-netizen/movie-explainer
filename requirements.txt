@@ -3,3 +3,4 @@ edge-tts
 yt-dlp
 opencv-python
 google-generativeai
+moviepy
