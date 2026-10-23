@@ -3,4 +3,4 @@ edge-tts
 yt-dlp
 opencv-python
 google-generativeai
-moviepy
+moviepy==1.0.3
