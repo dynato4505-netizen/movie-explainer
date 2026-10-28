@@ -80,14 +80,13 @@ with tab_video:
             st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
             st.video(uploaded_file)
             
-            # ⚡ បន្ថែមមុខងារថ្មី៖ ប៊ូតុង Generate Timestamps ស្វ័យប្រវត្តិពីវីដេអូ
+            # ⚡ បន្ថែមមុខងារថ្មីនៅទីនេះ (Auto Timestamp Generator)
             st.markdown("---")
-            st.subheader("⏱️ ទាញយកស្ក្រឹតមានម៉ោងស្វ័យប្រវត្តិ ([00:01 - 00:04])")
-            st.write("ចុចប៊ូតុងខាងក្រោមដើម្បីបង្កើត Timestamps ពីវីដេអូនេះ រួច Copy យកទៅដាក់កន្លែងបញ្ចូលសំឡេង៖")
+            st.markdown("### ⏱️ បង្កើតស្ក្រឹតម៉ោងស្វ័យប្រវត្តិ ([00:01 - 00:04])")
+            st.write("ចុចប៊ូតុងខាងក្រោមដើម្បីបង្កើត Timestamps តាមប្រវែងវីដេអូនេះ រួច Copy យកទៅដាក់កន្លែងបញ្ចូលសំឡេង៖")
             
-            if st.button("✨ Generate Timestamps ពីវីដេអូនេះ"):
-                with st.spinner("⏳ កំពុងវិភាគវីដេអូ និងបង្កើត Timestamps..."):
-                    # ប្រើ MoviePy ដើម្បីយកប្រវែងវីដេអូពិតប្រាកដ រួចបង្កើតកូដគំរូ [00:00 - ...]
+            if st.button("✨ ញ៉ាំងស្ក្រឹត Generate Timestamps ពីវីដេអូនេះ"):
+                with st.spinner("⏳ កំពុងអានប្រវែងវីដេអូ និងបង្កើត Timestamps..."):
                     try:
                         tfile_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                         tfile_temp.write(uploaded_file.getbuffer())
@@ -98,7 +97,7 @@ with tab_video:
                         clip_temp.close()
                         os.remove(tfile_temp.name)
                         
-                        # បង្កើត Sample Timestamps រៀងរាល់ ៥ វិនាទីម្តង
+                        # បង្កើត Timestamps រៀងរាល់ ៥ វិនាទីម្តង
                         sample_script = ""
                         for start in range(0, duration_sec, 5):
                             end = min(start + 5, duration_sec)
@@ -110,14 +109,14 @@ with tab_video:
                         st.session_state.generated_timestamp_script = sample_script
                         st.success("🎉 បង្កើត Timestamps រួចរាល់! សូម Copy អត្ថបទខាងក្រោម៖")
                     except Exception as e:
-                        st.error(f"មានបញ្ហាក្នុងការអានវីដេអូ: {e}")
+                        st.error(f"មានបញ្ហាក្នុងการអានវីដេអូ: {e}")
             
-            # បង្ហាញ Textarea សម្រាប់ Copy
+            # បង្ហាញ Textarea សម្រាប់ Copy យកទៅប្រើ
             if st.session_state.generated_timestamp_script:
                 st.text_area(
                     "📋 Copy ស្ក្រឹតខាងក្រោមនេះ យកទៅ Paste នៅផ្ទាំង «សំឡេង»:",
                     value=st.session_state.generated_timestamp_script,
-                    height=180
+                    height=200
                 )
     else:
         st.text_input("🔗 ដាក់ Link វីដេអូ (YouTube, TikTok, ฯលฯ):")
@@ -298,3 +297,4 @@ with tab_download:
 with tab_recap:
     st.subheader("🎞️ ប្រវត្តិរីដេអូម")
     st.markdown("<p style='color: #94a3b8;'>វីដេអូដែលបានបង្កើតរួចនឹងត្រូវបានរក្សាទុកនៅទីនេះ។</p>", unsafe_allow_html=True)
+                        
