@@ -45,7 +45,7 @@ st.markdown("""
 
 # 📌 ចំណងជើងចម្បងរបស់แอป
 st.markdown("<h2 style='text-align: center; color: #a78bfa;'>🎬 Khmer Video AI</h2>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #94a3b8;'>ទាញយកអត្ថបទពីវីដេអូ និងបញ្ចូលសំឡេង AI តាម Timestamps</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8;'>ទាញយកអត្ថបទដើមពីវីដេអូជាមួយ Timestamps ស្វ័យប្រវត្តិ</p>", unsafe_allow_html=True)
 
 # 🗂️ បែងចែកផ្ទាំង (Tabs)
 tab_video, tab_translate, tab_audio, tab_sub, tab_download, tab_recap = st.tabs([
@@ -68,7 +68,7 @@ if "generated_timestamp_script" not in st.session_state:
     st.session_state.generated_timestamp_script = ""
 
 # -------------------------------------------------------------
-# 1. ផ្ទាំងវីដេអូ (Video Input + Whisper AI Tiny Model)
+# 1. ផ្ទាំងវីដេអូ (Video Input + Whisper AI Original Text)
 # -------------------------------------------------------------
 with tab_video:
     st.subheader("🎬 បញ្ចូលវីដេអូ ឬតំណភ្ជាប់ (Link)")
@@ -81,19 +81,19 @@ with tab_video:
             st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
             st.video(uploaded_file)
             
-            # ⚡ ប្រើប្រាស់ Whisper Model "tiny" ដើម្បីកុំឱ្យហួសកម្រិត RAM
+            # ⚡ មុខងារទាញយកអត្ថបទដើមពីវីដេអូ (រក្សាទម្រង់ភាសាដដែលដូចមុន)
             st.markdown("---")
-            st.markdown("### 🎙️ ទាញយកអត្ថបទពិតពីសំឡេងតួអង្គ (Whisper AI - Optimized)")
-            st.write("ចុចប៊ូតុងខាងក្រោមដើម្បីឱ្យ AI ស្ដាប់សំឡេង និងទាញយកអត្ថបទមកជាមួយម៉ោងស្រាប់៖")
+            st.markdown("### 🎙️ ទាញយកអត្ថបទដើមពីវីដេអូ (Whisper AI - Original Script)")
+            st.write("ចុចប៊ូតុងខាងក្រោមដើម្បីឱ្យ AI ទាញយកអត្ថបទដើម (ឧ. អក្សរចិន) មកជាមួយម៉ោងស្រាប់៖")
             
-            if st.button("✨ ចាប់ផ្ដើមទាញយកអត្ថបទពីវីដេអូ"):
-                with st.spinner("⏳ AI កំពុងស្ដាប់សំឡេង និងបង្កើត Timestamps..."):
+            if st.button("✨ ចាប់ផ្ដើមទាញយកអត្ថបទដើម"):
+                with st.spinner("⏳ AI កំពុងស្ដាប់សំឡេង និងបង្កើត Timestamps... (រង់ចាំបន្តិច)"):
                     try:
                         tfile_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                         tfile_temp.write(uploaded_file.getbuffer())
                         tfile_temp.close()
                         
-                        # 🛠️ ប្រើ model "tiny" ជំនួស "base" ដើម្បីសន្សំសំចៃ RAM កុំឱ្យគាំង Server
+                        # ប្រើ Whisper model "tiny" ដើម្បីដំណើរការលឿននិងមិនស៊ី RAM
                         model = whisper.load_model("tiny")
                         result = model.transcribe(tfile_temp.name)
                         os.remove(tfile_temp.name)
@@ -111,14 +111,14 @@ with tab_video:
                         
                         st.session_state.generated_timestamp_script = extracted_script
                         st.session_state.script_input = extracted_script
-                        st.success("🎉 ទាញយកអត្ថបទពីវីដេអូរួចរាល់ជាស្រេច!")
+                        st.success("🎉 ទាញយកអត្ថបទដើមជោគជ័យ! បងអាច Copy យកទៅប្រើប្រាស់បាន៖")
                     except Exception as e:
                         st.error(f"មានបញ្ហាក្នុងការទាញយកអត្ថបទ: {e}")
             
             # បង្ហាញ Textarea
             if st.session_state.generated_timestamp_script:
                 st.text_area(
-                    "📋 អត្ថបទដែលទាញបាន:",
+                    "📋 អត្ថបទដើមនិង Timestamps:",
                     value=st.session_state.generated_timestamp_script,
                     height=220
                 )
@@ -300,4 +300,4 @@ with tab_download:
 # -------------------------------------------------------------
 with tab_recap:
     st.subheader("🎞️ ប្រវត្តិរីដេអូម")
-    st.markdown("<p style='color: #94a3b8;'>វីដេអូដែលបានបង្កើតរួចនឹងត្រូវបានរក្សាទុកនៅទីนี่។</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8;'>វីដេអូដែលបានបង្កើតរួចនឹងត្រូវបានរក្សាទុកនៅទីនេះ។</p>", unsafe_allow_html=True)
