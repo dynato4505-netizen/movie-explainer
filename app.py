@@ -63,9 +63,11 @@ if "uploaded_video" not in st.session_state:
     st.session_state.uploaded_video = None
 if "final_video_bytes" not in st.session_state:
     st.session_state.final_video_bytes = None
+if "generated_timestamp_script" not in st.session_state:
+    st.session_state.generated_timestamp_script = ""
 
 # -------------------------------------------------------------
-# 1. ផ្ទាំងវីដេអូ (Video Input)
+# 1. ផ្ទាំងវីដេអូ (Video Input + Auto Timestamp Generator)
 # -------------------------------------------------------------
 with tab_video:
     st.subheader("🎬 បញ្ចូលវីដេអូ ឬតំណភ្ជាប់ (Link)")
@@ -77,6 +79,46 @@ with tab_video:
             st.session_state.uploaded_video = uploaded_file
             st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
             st.video(uploaded_file)
+            
+            # ⚡ បន្ថែមមុខងារថ្មី៖ ប៊ូតុង Generate Timestamps ស្វ័យប្រវត្តិពីវីដេអូ
+            st.markdown("---")
+            st.subheader("⏱️ ទាញយកស្ក្រឹតមានម៉ោងស្វ័យប្រវត្តិ ([00:01 - 00:04])")
+            st.write("ចុចប៊ូតុងខាងក្រោមដើម្បីបង្កើត Timestamps ពីវីដេអូនេះ រួច Copy យកទៅដាក់កន្លែងបញ្ចូលសំឡេង៖")
+            
+            if st.button("✨ Generate Timestamps ពីវីដេអូនេះ"):
+                with st.spinner("⏳ កំពុងវិភាគវីដេអូ និងបង្កើត Timestamps..."):
+                    # ប្រើ MoviePy ដើម្បីយកប្រវែងវីដេអូពិតប្រាកដ រួចបង្កើតកូដគំរូ [00:00 - ...]
+                    try:
+                        tfile_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+                        tfile_temp.write(uploaded_file.getbuffer())
+                        tfile_temp.close()
+                        
+                        clip_temp = VideoFileClip(tfile_temp.name)
+                        duration_sec = int(clip_temp.duration)
+                        clip_temp.close()
+                        os.remove(tfile_temp.name)
+                        
+                        # បង្កើត Sample Timestamps រៀងរាល់ ៥ វិនាទីម្តង
+                        sample_script = ""
+                        for start in range(0, duration_sec, 5):
+                            end = min(start + 5, duration_sec)
+                            m_start, s_start = divmod(start, 60)
+                            m_end, s_end = divmod(end, 60)
+                            time_label = f"[{m_start:02d}:{s_start:02d} - {m_end:02d}:{s_end:02d}]"
+                            sample_script += f"{time_label} [សរសេរអត្ថបទរបស់អ្នកទីនេះ...]\n"
+                        
+                        st.session_state.generated_timestamp_script = sample_script
+                        st.success("🎉 បង្កើត Timestamps រួចរាល់! សូម Copy អត្ថបទខាងក្រោម៖")
+                    except Exception as e:
+                        st.error(f"មានបញ្ហាក្នុងការអានវីដេអូ: {e}")
+            
+            # បង្ហាញ Textarea សម្រាប់ Copy
+            if st.session_state.generated_timestamp_script:
+                st.text_area(
+                    "📋 Copy ស្ក្រឹតខាងក្រោមនេះ យកទៅ Paste នៅផ្ទាំង «សំឡេង»:",
+                    value=st.session_state.generated_timestamp_script,
+                    height=180
+                )
     else:
         st.text_input("🔗 ដាក់ Link វីដេអូ (YouTube, TikTok, ฯលฯ):")
 
@@ -164,6 +206,7 @@ with tab_audio:
                     st.error("❌ ទម្រង់ Timestamps មិនត្រឹមត្រូវទេ។ (ឧទាហរណ៍: [00:00 - 00:05] អត្ថបទ)")
                 else:
                     tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+                    uploaded_video_file.seek(0)
                     tfile.write(uploaded_video_file.read())
                     tfile.close()
                     
@@ -210,7 +253,7 @@ with tab_audio:
             except Exception as e:
                 st.error(f"មានបញ្ហាកើតឡើង: {e}")
 
-    # 📺 បង្ហាញវីដេអូពេញ និងប៊ូតុង Download (ដាក់ key ដាច់ដោយឡែក)
+    # 📺 បង្ហាញវីដេអូពេញ និងប៊ូតុង Download
     if st.session_state.get("final_video_bytes"):
         st.markdown("---")
         st.write("### 🎬 លទ្ធផលវីដេអូពេញ (Full Video ជាមួយសំឡេង AI):")
