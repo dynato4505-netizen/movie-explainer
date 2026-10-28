@@ -4,6 +4,7 @@ import edge_tts
 import os
 import tempfile
 import re
+import whisper
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip
 
 # 🌟 កំណត់ទម្រង់ទំព័រឱ្យធំទូលាយស្អាត (Wide Mode)
@@ -44,7 +45,7 @@ st.markdown("""
 
 # 📌 ចំណងជើងចម្បងរបស់แอป
 st.markdown("<h2 style='text-align: center; color: #a78bfa;'>🎬 Khmer Video AI</h2>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #94a3b8;'>រក្សាទុកវីដេអូដើមពេញលេញ និងបញ្ចូលសំឡេង AI តាម Timestamps</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8;'>ទាញយកអត្ថបទពិតពីវីដេអូ និងបញ្ចូលសំឡេង AI តាម Timestamps</p>", unsafe_allow_html=True)
 
 # 🗂️ បែងចែកផ្ទាំង (Tabs)
 tab_video, tab_translate, tab_audio, tab_sub, tab_download, tab_recap = st.tabs([
@@ -67,7 +68,7 @@ if "generated_timestamp_script" not in st.session_state:
     st.session_state.generated_timestamp_script = ""
 
 # -------------------------------------------------------------
-# 1. ផ្ទាំងវីដេអូ (Video Input + Auto Timestamp Generator)
+# 1. ផ្ទាំងវីដេអូ (Video Input + Whisper AI Speech-to-Text)
 # -------------------------------------------------------------
 with tab_video:
     st.subheader("🎬 បញ្ចូលវីដេអូ ឬតំណភ្ជាប់ (Link)")
@@ -80,43 +81,47 @@ with tab_video:
             st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
             st.video(uploaded_file)
             
-            # ⚡ បន្ថែមមុខងារថ្មីនៅទីនេះ (Auto Timestamp Generator)
+            # ⚡ មុខងារទាញយកអត្ថបទពិតដោយប្រើ Whisper AI
             st.markdown("---")
-            st.markdown("### ⏱️ បង្កើតស្ក្រឹតម៉ោងស្វ័យប្រវត្តិ ([00:01 - 00:04])")
-            st.write("ចុចប៊ូតុងខាងក្រោមដើម្បីបង្កើត Timestamps តាមប្រវែងវីដេអូនេះ រួច Copy យកទៅដាក់កន្លែងបញ្ចូលសំឡេង៖")
+            st.markdown("### 🎙️ ទាញយកអត្ថបទពិតពីសំឡេងតួអង្គក្នុងវីដេអូ (AI Transcription)")
+            st.write("ចុចប៊ូតុងខាងក្រោមដើម្បីឱ្យ AI ស្ដាប់សំឡេងក្នុងវីដេអូ និងទាញយកជាអត្ថបទនិយាយពិតប្រាកដ៖")
             
-            if st.button("✨ ញ៉ាំងស្ក្រឹត Generate Timestamps ពីវីដេអូនេះ"):
-                with st.spinner("⏳ កំពុងអានប្រវែងវីដេអូ និងបង្កើត Timestamps..."):
+            if st.button("✨ ចាប់ផ្ដើមទាញយកអត្ថបទពិតពីវីដេអូ"):
+                with st.spinner("⏳ AI កំពុងស្ដាប់សំឡេង និងបម្លែងជាអត្ថបទ (អាចយឺតបន្តិចអាស្រ័យលើប្រវែងវីដេអូ)..."):
                     try:
                         tfile_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                         tfile_temp.write(uploaded_file.getbuffer())
                         tfile_temp.close()
                         
-                        clip_temp = VideoFileClip(tfile_temp.name)
-                        duration_sec = int(clip_temp.duration)
-                        clip_temp.close()
+                        # โหลด Whisper Model (ប្រើប្រាស់ model "base" ដើម្បីភាពលឿននិងល្មមប្រើ)
+                        model = whisper.load_model("base")
+                        result = model.transcribe(tfile_temp.name)
                         os.remove(tfile_temp.name)
                         
-                        # បង្កើត Timestamps រៀងរាល់ ៥ វិនាទីម្តង
-                        sample_script = ""
-                        for start in range(0, duration_sec, 5):
-                            end = min(start + 5, duration_sec)
-                            m_start, s_start = divmod(start, 60)
-                            m_end, s_end = divmod(end, 60)
+                        # រៀបចំទម្រង់អត្ថបទចេញមកជា Timestamps [00:00 - 00:05] អត្ថបទពិត...
+                        extracted_script = ""
+                        for segment in result["segments"]:
+                            start_sec = int(segment["start"])
+                            end_sec = int(segment["end"])
+                            m_start, s_start = divmod(start_sec, 60)
+                            m_end, s_end = divmod(end_sec, 60)
+                            text_content = segment["text"].strip()
+                            
                             time_label = f"[{m_start:02d}:{s_start:02d} - {m_end:02d}:{s_end:02d}]"
-                            sample_script += f"{time_label} [សរសេរអត្ថបទរបស់អ្នកទីនេះ...]\n"
+                            extracted_script += f"{time_label} {text_content}\n"
                         
-                        st.session_state.generated_timestamp_script = sample_script
-                        st.success("🎉 បង្កើត Timestamps រួចរាល់! សូម Copy អត្ថបទខាងក្រោម៖")
+                        st.session_state.generated_timestamp_script = extracted_script
+                        st.session_state.script_input = extracted_script # រក្សាទុកចូលក្នុង script_input ស្រាប់
+                        st.success("🎉 ទាញយកអត្ថបទពិតពីតួអង្គបានជោគជ័យ! សូមពិនិត្យមើលខាងក្រោម៖")
                     except Exception as e:
-                        st.error(f"មានបញ្ហាក្នុងการអានវីដេអូ: {e}")
+                        st.error(f"មានបញ្ហាក្នុងការទាញយកអត្ថបទ: {e}")
             
-            # បង្ហាញ Textarea សម្រាប់ Copy យកទៅប្រើ
+            # បង្ហាញ Textarea ដែលមានអត្ថបទពិតរបស់តួអង្គ
             if st.session_state.generated_timestamp_script:
                 st.text_area(
-                    "📋 Copy ស្ក្រឹតខាងក្រោមនេះ យកទៅ Paste នៅផ្ទាំង «សំឡេង»:",
+                    "📋 អត្ថបទពិតរបស់តួអង្គ (អាចកែសម្រួលបាន):",
                     value=st.session_state.generated_timestamp_script,
-                    height=200
+                    height=220
                 )
     else:
         st.text_input("🔗 ដាក់ Link វីដេអូ (YouTube, TikTok, ฯលฯ):")
@@ -209,12 +214,12 @@ with tab_audio:
                     tfile.write(uploaded_video_file.read())
                     tfile.close()
                     
-                    status_text.info("🎬 กำลังโหลดវីដេអូ និងបង្កើតសំឡេង AI...")
+                    status_text.info("🎬 កំពុងផ្ទុកវីដេអូ និងបង្កើតសំឡេង AI...")
                     video_clip = VideoFileClip(tfile.name)
                     
                     audio_clips = []
                     if video_clip.audio is not None and keep_orig_audio:
-                        audio_clips.append(video_clip.audio.volumized(0.1))
+                        audio_clips.append(video_clip.audio.volumex(0.1))
                     
                     total_items = len(dialogues)
                     temp_audio_files = []
@@ -297,4 +302,4 @@ with tab_download:
 with tab_recap:
     st.subheader("🎞️ ប្រវត្តិរីដេអូម")
     st.markdown("<p style='color: #94a3b8;'>វីដេអូដែលបានបង្កើតរួចនឹងត្រូវបានរក្សាទុកនៅទីនេះ។</p>", unsafe_allow_html=True)
-                        
+            
