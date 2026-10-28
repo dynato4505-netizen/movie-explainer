@@ -5,6 +5,7 @@ import os
 import tempfile
 import re
 import whisper
+from googletrans import Translator
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip
 
 # 🌟 កំណត់ទម្រង់ទំព័រឱ្យធំទូលាយស្អាត (Wide Mode)
@@ -45,7 +46,7 @@ st.markdown("""
 
 # 📌 ចំណងជើងចម្បងរបស់แอป
 st.markdown("<h2 style='text-align: center; color: #a78bfa;'>🎬 Khmer Video AI</h2>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #94a3b8;'>ទាញយកអត្ថបទពិតពីវីដេអូ និងបញ្ចូលសំឡេង AI តាម Timestamps</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8;'>ទាញយកអត្ថបទ និងបកប្រែជាភាសាខ្មែរជាមួយ Timestamps ស្វ័យប្រវត្តិ</p>", unsafe_allow_html=True)
 
 # 🗂️ បែងចែកផ្ទាំង (Tabs)
 tab_video, tab_translate, tab_audio, tab_sub, tab_download, tab_recap = st.tabs([
@@ -68,7 +69,7 @@ if "generated_timestamp_script" not in st.session_state:
     st.session_state.generated_timestamp_script = ""
 
 # -------------------------------------------------------------
-# 1. ផ្ទាំងវីដេអូ (Video Input + Whisper AI Speech-to-Text)
+# 1. ផ្ទាំងវីដេអូ (Video Input + Whisper AI + Auto Translate to Khmer)
 # -------------------------------------------------------------
 with tab_video:
     st.subheader("🎬 បញ្ចូលវីដេអូ ឬតំណភ្ជាប់ (Link)")
@@ -81,45 +82,54 @@ with tab_video:
             st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
             st.video(uploaded_file)
             
-            # ⚡ មុខងារទាញយកអត្ថបទពិតដោយប្រើ Whisper AI
+            # ⚡ មុខងារទាញយក និងបកប្រែជាភាសាខ្មែរស្វ័យប្រវត្តិ
             st.markdown("---")
-            st.markdown("### 🎙️ ទាញយកអត្ថបទពិតពីសំឡេងតួអង្គក្នុងវីដេអូ (AI Transcription)")
-            st.write("ចុចប៊ូតុងខាងក្រោមដើម្បីឱ្យ AI ស្ដាប់សំឡេងក្នុងវីដេអូ និងទាញយកជាអត្ថបទនិយាយពិតប្រាកដ៖")
+            st.markdown("### 🎙️ ទាញយក និងបកប្រែជាភាសាខ្មែរ (Auto-Translate to Khmer)")
+            st.write("ចុចប៊ូតុងខាងក្រោមដើម្បីឱ្យ AI ស្ដាប់សំឡេង បកប្រែជាភាសាខ្មែរ និងរៀបចំម៉ោងស្រាប់៖")
             
-            if st.button("✨ ចាប់ផ្ដើមទាញយកអត្ថបទពិតពីវីដេអូ"):
-                with st.spinner("⏳ AI កំពុងស្ដាប់សំឡេង និងបម្លែងជាអត្ថបទ (អាចយឺតបន្តិចអាស្រ័យលើប្រវែងវីដេអូ)..."):
+            if st.button("✨ ចាប់ផ្ដើមទាញយក និងបកប្រែជាខ្មែរ"):
+                with st.spinner("⏳ កំពុងស្ដាប់សំឡេង បកប្រែជាភាសាខ្មែរ និងរៀបចំ Timestamps..."):
                     try:
                         tfile_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                         tfile_temp.write(uploaded_file.getbuffer())
                         tfile_temp.close()
                         
-                        # โหลด Whisper Model (ប្រើប្រាស់ model "base" ដើម្បីភាពលឿននិងល្មមប្រើ)
+                        # ប្រើ Whisper ដើម្បីទាញយកអត្ថបទដើម
                         model = whisper.load_model("base")
                         result = model.transcribe(tfile_temp.name)
                         os.remove(tfile_temp.name)
                         
-                        # រៀបចំទម្រង់អត្ថបទចេញមកជា Timestamps [00:00 - 00:05] អត្ថបទពិត...
-                        extracted_script = ""
+                        # ប្រើ Google Translator ដើម្បីបកប្រែជាភាសាខ្មែរ
+                        translator = Translator()
+                        translated_script = ""
+                        
                         for segment in result["segments"]:
                             start_sec = int(segment["start"])
                             end_sec = int(segment["end"])
                             m_start, s_start = divmod(start_sec, 60)
                             m_end, s_end = divmod(end_sec, 60)
-                            text_content = segment["text"].strip()
+                            original_text = segment["text"].strip()
+                            
+                            # បកប្រែអត្ថបទនីមួយៗជាភាសាខ្មែរ
+                            if original_text:
+                                translation = translator.translate(original_text, dest='km')
+                                khmer_text = translation.text
+                            else:
+                                khmer_text = ""
                             
                             time_label = f"[{m_start:02d}:{s_start:02d} - {m_end:02d}:{s_end:02d}]"
-                            extracted_script += f"{time_label} {text_content}\n"
+                            translated_script += f"{time_label} {khmer_text}\n"
                         
-                        st.session_state.generated_timestamp_script = extracted_script
-                        st.session_state.script_input = extracted_script # រក្សាទុកចូលក្នុង script_input ស្រាប់
-                        st.success("🎉 ទាញយកអត្ថបទពិតពីតួអង្គបានជោគជ័យ! សូមពិនិត្យមើលខាងក្រោម៖")
+                        st.session_state.generated_timestamp_script = translated_script
+                        st.session_state.script_input = translated_script
+                        st.success("🎉 បកប្រែជាភាសាខ្មែរ និងរៀបចំ Timestamps រួចរាល់ជាស្រេច!")
                     except Exception as e:
-                        st.error(f"មានបញ្ហាក្នុងការទាញយកអត្ថបទ: {e}")
+                        st.error(f"មានបញ្ហាក្នុងការបកប្រែ: {e}")
             
-            # បង្ហាញ Textarea ដែលមានអត្ថបទពិតរបស់តួអង្គ
+            # បង្ហាញ Textarea ដែលជាអត្ថបទភាសាខ្មែរមានម៉ោងស្រាប់
             if st.session_state.generated_timestamp_script:
                 st.text_area(
-                    "📋 អត្ថបទពិតរបស់តួអង្គ (អាចកែសម្រួលបាន):",
+                    "📋 ស្គ្រីបភាសាខ្មែរ និង Timestamps (អាចកែសម្រួលបាន):",
                     value=st.session_state.generated_timestamp_script,
                     height=220
                 )
@@ -302,4 +312,4 @@ with tab_download:
 with tab_recap:
     st.subheader("🎞️ ប្រវត្តិរីដេអូម")
     st.markdown("<p style='color: #94a3b8;'>វីដេអូដែលបានបង្កើតរួចនឹងត្រូវបានរក្សាទុកនៅទីនេះ។</p>", unsafe_allow_html=True)
-            
+                        
