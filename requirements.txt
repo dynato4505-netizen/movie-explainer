@@ -1,10 +1,8 @@
-yt-dlp
-opencv-python
-google-generativeai
-moviepy==1.0.3
+streamlit
 openai-whisper
 torch
 edge-tts
-moviepy
-streamlit
+moviepy==1.0.3
+opencv-python
 yt-dlp
+google-generativeai
