@@ -56,7 +56,7 @@ st.markdown("""
 st.markdown("<h2 style='text-align: center; color: #a78bfa;'>🎬 Khmer Video AI</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #94a3b8;'>ទាញយកអត្ថបទដើមពីវីដេអូជាមួយ Timestamps ស្វ័យប្រវត្តិ</p>", unsafe_allow_html=True)
 
-# 🗂️ បែងចែកផ្ទាំង (Tabs)
+# 🗂️ បែងចែកផ្ទាំង (Tabs) - គ្រប់មុខងារទាំង ៦ ផ្ទាំងនៅដដែល
 tab_video, tab_translate, tab_audio, tab_sub, tab_download, tab_recap = st.tabs([
     "🎬 វីដេអូ", 
     "🌐 បកប្រែ", 
@@ -84,13 +84,13 @@ with tab_video:
     input_method = st.radio("ជ្រើសរើសវិធីសាស្ត្របញ្ចូល:", ["📤 Upload", "🔗 Link"], horizontal=True)
     
     if input_method == "📤 Upload":
-        uploaded_file = st.file_uploader("បន្ថែមវីដេអូពេញ", type=["mp4", "mov", "mkv", "avi", "webm"])
+        uploaded_file = st.file_uploader("បន្ថែមវីដេអូពេញ (ទំហំក្រោម 200MB)", type=["mp4", "mov", "mkv", "avi", "webm"])
         if uploaded_file:
             st.session_state.uploaded_video = uploaded_file
             st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
             st.video(uploaded_file)
             
-            # ⚡ មុខងារទាញយកអត្ថបទដើមពីវីដេអូ (រក្សាទម្រង់ភាសាដដែលដូចមុន)
+            # ⚡ មុខងារទាញយកអត្ថបទដើមពីវីដេអូ (ស័ក្តិសមសម្រាប់វីដេអូភាសាចិន/ផ្សេងៗ)
             st.markdown("---")
             st.markdown("### 🎙️ ទាញយកអត្ថបទដើមពីវីដេអូ (Whisper AI - Original Script)")
             st.write("ចុចប៊ូតុងខាងក្រោមដើម្បីឱ្យ AI ទាញយកអត្ថបទដើម (ឧ. អក្សរចិន) មកជាមួយម៉ោងស្រាប់៖")
@@ -120,7 +120,7 @@ with tab_video:
                         
                         st.session_state.generated_timestamp_script = extracted_script
                         st.session_state.script_input = extracted_script
-                        st.success("🎉 ទាញយកអត្ថបទដើមជោគជ័យ! បងអាច Copy យកទៅប្រើប្រាស់បាន៖")
+                        st.success("🎉 ទាញយកអត្ថបទដើមជោគជ័យ! បងអាច Copy ឬយកទៅប្រើក្នុងផ្ទាំងសំឡេងបាន៖")
                     except Exception as e:
                         st.error(f"មានបញ្ហាក្នុងការទាញយកអត្ថបទ: {e}")
             
@@ -310,4 +310,3 @@ with tab_download:
 with tab_recap:
     st.subheader("🎞️ ប្រវត្តិរីដេអូម")
     st.markdown("<p style='color: #94a3b8;'>វីដេអូដែលបានបង្កើតរួចនឹងត្រូវបានរក្សាទុកនៅទីនេះ។</p>", unsafe_allow_html=True)
-    
