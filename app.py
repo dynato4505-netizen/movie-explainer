@@ -56,7 +56,7 @@ st.markdown("""
 st.markdown("<h2 style='text-align: center; color: #a78bfa;'>🎬 Khmer Video AI</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #94a3b8;'>ទាញយកអត្ថបទដើមពីវីដេអូជាមួយ Timestamps ស្វ័យប្រវត្តិ</p>", unsafe_allow_html=True)
 
-# 🗂️ បែងចែកផ្ទាំង (Tabs) - គ្រប់មុខងារទាំង ៦ ផ្ទាំងនៅដដែល
+# 🗂️ បែងចែកផ្ទាំង (Tabs)
 tab_video, tab_translate, tab_audio, tab_sub, tab_download, tab_recap = st.tabs([
     "🎬 វីដេអូ", 
     "🌐 បកប្រែ", 
@@ -81,25 +81,30 @@ if "generated_timestamp_script" not in st.session_state:
 # -------------------------------------------------------------
 with tab_video:
     st.subheader("🎬 បញ្ចូលវីដេអូ ឬតំណភ្ជាប់ (Link)")
-    input_method = st.radio("ជ្រើសរើសវិធីសាស្ត្របញ្ចូល:", ["📤 Upload", "🔗 Link"], horizontal=True)
+    input_method = st.radio("ជ្រើសរើសវិធីសាស្ត្របញ្ចូល:", ["📤 Upload", "🔗 Link"], horizontal=True, key="input_method_radio")
     
     if input_method == "📤 Upload":
-        uploaded_file = st.file_uploader("បន្ថែមវីដេអូពេញ (ទំហំក្រោម 200MB)", type=["mp4", "mov", "mkv", "avi", "webm"])
-        if uploaded_file:
+        uploaded_file = st.file_uploader("បន្ថែមវីដេអូពេញ (ទំហំក្រោម 200MB)", type=["mp4", "mov", "mkv", "avi", "webm"], key="vid_uploader")
+        
+        # រក្សាទុកវីដេអូចូល session_state ទុកជានិច្ចដើម្បីកុំឱ្យបាត់ពេលចុចប៊ូតុង
+        if uploaded_file is not None:
             st.session_state.uploaded_video = uploaded_file
-            st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
-            st.video(uploaded_file)
             
-            # ⚡ មុខងារទាញយកអត្ថបទដើមពីវីដេអូ (ស័ក្តិសមសម្រាប់វីដេអូភាសាចិន/ផ្សេងៗ)
+        if st.session_state.get("uploaded_video") is not None:
+            current_video = st.session_state.uploaded_video
+            st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
+            st.video(current_video)
+            
             st.markdown("---")
             st.markdown("### 🎙️ ទាញយកអត្ថបទដើមពីវីដេអូ (Whisper AI - Original Script)")
             st.write("ចុចប៊ូតុងខាងក្រោមដើម្បីឱ្យ AI ទាញយកអត្ថបទដើម (ឧ. អក្សរចិន) មកជាមួយម៉ោងស្រាប់៖")
             
-            if st.button("✨ ចាប់ផ្ដើមទាញយកអត្ថបទដើម"):
+            if st.button("✨ ចាប់ផ្ដើមទាញយកអត្ថបទដើម", key="start_transcribe_btn"):
                 with st.spinner("⏳ AI កំពុងស្ដាប់សំឡេង និងបង្កើត Timestamps... (រង់ចាំបន្តិច)"):
                     try:
                         tfile_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
-                        tfile_temp.write(uploaded_file.getbuffer())
+                        current_video.seek(0)
+                        tfile_temp.write(current_video.read())
                         tfile_temp.close()
                         
                         # ប្រើ Whisper model "tiny" ដើម្បីដំណើរការលឿននិងមិនស៊ី RAM
@@ -120,23 +125,24 @@ with tab_video:
                         
                         st.session_state.generated_timestamp_script = extracted_script
                         st.session_state.script_input = extracted_script
-                        st.success("🎉 ទាញយកអត្ថបទដើមជោគជ័យ! បងអាច Copy ឬយកទៅប្រើក្នុងផ្ទាំងសំឡេងបាន៖")
+                        st.success("🎉 ទាញយកអត្ថបទដើមជោគជ័យ!")
                     except Exception as e:
                         st.error(f"មានបញ្ហាក្នុងការទាញយកអត្ថបទ: {e}")
             
-            # បង្ហាញ Textarea
-            if st.session_state.generated_timestamp_script:
+            # បង្ហាញ Textarea ជានិច្ចនៅពេលមាន Script
+            if st.session_state.get("generated_timestamp_script"):
                 st.text_area(
                     "📋 អត្ថបទដើមនិង Timestamps:",
                     value=st.session_state.generated_timestamp_script,
-                    height=220
+                    height=220,
+                    key="script_textarea_display"
                 )
     else:
-        st.text_input("🔗 ដាក់ Link វីដេអូ (YouTube, TikTok, ฯលฯ):")
+        st.text_input("🔗 ដាក់ Link វីដេអូ (YouTube, TikTok, ฯលฯ):", key="link_input_field")
 
     st.markdown("---")
     st.subheader("📊 គុណភាពវីដេអូ (Resolution)")
-    st.radio("ជ្រើសរើសកម្រិតច្បាស់:", ("⚡ លឿន 480p", "✨ ល្អ 720p", "💎 ខ្ពស់ (ដើម)"), horizontal=True)
+    st.radio("ជ្រើសរើសកម្រិតច្បាស់:", ("⚡ លឿន 480p", "✨ ល្អ 720p", "💎 ខ្ពស់ (ដើម)"), horizontal=True, key="resolution_radio")
 
 # -------------------------------------------------------------
 # 2. ផ្ទាំងបកប្រែ (Translation)
@@ -156,7 +162,7 @@ with tab_translate:
 with tab_audio:
     st.subheader("🎙️ បញ្ចូលសំឡេង AI លើវីដេអូពេញ (មិនកាត់ផ្ដាច់សាច់រឿង)")
     
-    voice_type = st.radio("សំឡេងនិយាយ:", ("👩 ស្រី (Sreymom)", "👨 ប្រុស (Piseth)"))
+    voice_type = st.radio("សំឡេងនិយាយ:", ("👩 ស្រី (Sreymom)", "👨 ប្រុស (Piseth)"), key="voice_type_radio")
     selected_voice = "km-KH-SreymomNeural" if "ស្រី" in voice_type else "km-KH-PisethNeural"
     
     keep_orig_audio = st.checkbox("🔊 រក្សាសំឡេងដើមក្នុងវីដេអូខ្លះ (Background Audio - 10%)", value=False)
@@ -165,7 +171,8 @@ with tab_audio:
     st.session_state.script_input = st.text_area(
         "បញ្ចូល Timestamps និងអត្ថបទ (ឧទាហរណ៍: [00:00 - 00:05] សួស្តី...):",
         value=st.session_state.script_input,
-        height=140
+        height=140,
+        key="audio_tab_script_textarea"
     )
 
     async def generate_tts_safe(text, voice, output_path):
@@ -200,7 +207,7 @@ with tab_audio:
                 })
         return dialogues
 
-    if st.button("🎬 ចាប់ផ្តើមបញ្ចូលសំឡេង AI លើវីដេអូពេញ (.mp4)"):
+    if st.button("🎬 ចាប់ផ្តើមបញ្ចូលសំឡេង AI លើវីដេអូពេញ (.mp4)", key="start_dubbing_btn"):
         script_text = st.session_state.script_input
         uploaded_video_file = st.session_state.get("uploaded_video", None)
         
@@ -284,8 +291,8 @@ with tab_audio:
 # -------------------------------------------------------------
 with tab_sub:
     st.subheader("🔤 ការកំណត់រចនាប័ទ្មអក្សរ Subtitle")
-    st.selectbox("Font អក្សរ:", ("Battambang", "Siemreap", "Moul"))
-    st.slider("ទំហំអក្សរ", 14, 40, 22, 1)
+    st.selectbox("Font អក្សរ:", ("Battambang", "Siemreap", "Moul"), key="font_select")
+    st.slider("ទំហំអក្សរ", 14, 40, 22, 1, key="font_size_slider")
 
 # -------------------------------------------------------------
 # 5. ផ្ទាំងទាញយក (Download Section)
