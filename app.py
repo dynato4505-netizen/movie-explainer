@@ -14,6 +14,15 @@ st.set_page_config(
     layout="wide"
 )
 
+# 🧹 ប៊ូតុង Clear Cache & Restart សម្រាប់ងាយស្រួលចុចលើទូរស័ព្ទ (ដាក់នៅ Sidebar ខាងលើគេបង្អស់)
+with st.sidebar:
+    st.markdown("---")
+    if st.button("🧹 Clear Cache & Restart"):
+        st.cache_data.clear()
+        st.cache_resource.clear()
+        st.success("បានលុប Cache និងចាប់ផ្តើមថ្មីជោគជ័យ!")
+        st.rerun()
+
 # 🎨 Custom CSS សម្រាប់ Dark Mode ដ៏ប្រណិត
 st.markdown("""
     <style>
@@ -301,3 +310,4 @@ with tab_download:
 with tab_recap:
     st.subheader("🎞️ ប្រវត្តិរីដេអូម")
     st.markdown("<p style='color: #94a3b8;'>វីដេអូដែលបានបង្កើតរួចនឹងត្រូវបានរក្សាទុកនៅទីនេះ។</p>", unsafe_allow_html=True)
+    
