@@ -5,3 +5,5 @@ opencv-python
 google-generativeai
 moviepy==1.0.3
 openai-whisper
+torch
+
