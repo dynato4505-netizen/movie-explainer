@@ -1,9 +1,8 @@
-streamlit
-edge-tts
+openai-whisperrs
 yt-dlp
 opencv-python
 google-generativeai
 moviepy==1.0.3
 openai-whisper
 torch
-
+googletrans==4.0.0-rc1
