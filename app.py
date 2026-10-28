@@ -68,7 +68,7 @@ if "generated_timestamp_script" not in st.session_state:
     st.session_state.generated_timestamp_script = ""
 
 # -------------------------------------------------------------
-# 1. ផ្ទាំងវីដេអូ (Video Input + Whisper AI Transcription)
+# 1. ផ្ទាំងវីដេអូ (Video Input + Whisper AI Tiny Model)
 # -------------------------------------------------------------
 with tab_video:
     st.subheader("🎬 បញ្ចូលវីដេអូ ឬតំណភ្ជាប់ (Link)")
@@ -81,9 +81,9 @@ with tab_video:
             st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
             st.video(uploaded_file)
             
-            # ⚡ មុខងារទាញយកអត្ថបទពិតពីវីដេអូដោយប្រើ Whisper AI
+            # ⚡ ប្រើប្រាស់ Whisper Model "tiny" ដើម្បីកុំឱ្យហួសកម្រិត RAM
             st.markdown("---")
-            st.markdown("### 🎙️ ទាញយកអត្ថបទពិតពីសំឡេងតួអង្គ (Whisper AI)")
+            st.markdown("### 🎙️ ទាញយកអត្ថបទពិតពីសំឡេងតួអង្គ (Whisper AI - Optimized)")
             st.write("ចុចប៊ូតុងខាងក្រោមដើម្បីឱ្យ AI ស្ដាប់សំឡេង និងទាញយកអត្ថបទមកជាមួយម៉ោងស្រាប់៖")
             
             if st.button("✨ ចាប់ផ្ដើមទាញយកអត្ថបទពីវីដេអូ"):
@@ -93,8 +93,8 @@ with tab_video:
                         tfile_temp.write(uploaded_file.getbuffer())
                         tfile_temp.close()
                         
-                        # ប្រើ Whisper model "base"
-                        model = whisper.load_model("base")
+                        # 🛠️ ប្រើ model "tiny" ជំនួស "base" ដើម្បីសន្សំសំចៃ RAM កុំឱ្យគាំង Server
+                        model = whisper.load_model("tiny")
                         result = model.transcribe(tfile_temp.name)
                         os.remove(tfile_temp.name)
                         
@@ -118,7 +118,7 @@ with tab_video:
             # បង្ហាញ Textarea
             if st.session_state.generated_timestamp_script:
                 st.text_area(
-                    "📋 អត្ថបទដែលទាញបាន (អាចយកទៅបកប្រែ ឬកែសម្រួលនៅផ្ទាំង «បកប្រែ»):",
+                    "📋 អត្ថបទដែលទាញបាន:",
                     value=st.session_state.generated_timestamp_script,
                     height=220
                 )
@@ -288,7 +288,7 @@ with tab_download:
         st.download_button(
             label="📥 ទាញយកវីដេអូពេញ (.mp4)",
             data=st.session_state.final_video_bytes,
-            file_name="khmer_ai_full_dub ব্যাগড_video.mp4",
+            file_name="khmer_ai_full_dubbed_video.mp4",
             mime="video/mp4",
             key="download_tab_download_btn"
         )
@@ -300,5 +300,4 @@ with tab_download:
 # -------------------------------------------------------------
 with tab_recap:
     st.subheader("🎞️ ប្រវត្តិរីដេអូម")
-    st.markdown("<p style='color: #94a3b8;'>វីដេអូដែលបានបង្កើតរួចនឹងត្រូវបានរក្សាទុកនៅទីនេះ។</p>", unsafe_allow_html=True)
-                        
+    st.markdown("<p style='color: #94a3b8;'>វីដេអូដែលបានបង្កើតរួចនឹងត្រូវបានរក្សាទុកនៅទីนี่។</p>", unsafe_allow_html=True)
