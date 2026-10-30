@@ -6,3 +6,6 @@ moviepy==1.0.3
 opencv-python
 yt-dlp
 google-generativeai
+edge-tts
+moviepy
+google-genai
