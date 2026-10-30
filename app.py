@@ -4,17 +4,23 @@ import edge_tts
 import os
 import tempfile
 import re
-import whisper
+import google.generativeai as genai
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip
+
+# 🔑 ហៅយក API Key ដោយសុវត្ថិភាពពី Streamlit Secrets (Settings -> Secrets នៅលើ Streamlit Cloud)
+try:
+    DEFAULT_GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
+except:
+    DEFAULT_GEMINI_API_KEY = ""
 
 # 🌟 កំណត់ទម្រង់ទំព័រឱ្យធំទូលាយស្អាត (Wide Mode)
 st.set_page_config(
-    page_title="Khmer Video AI - បញ្ចូលសំឡេង AI លើវីដេអូពេញ",
+    page_title="Khmer Video AI Pro - បញ្ចូលសំឡេង AI លើវីដេអូ",
     page_icon="🎬",
     layout="wide"
 )
 
-# 🧹 ប៊ូតុង Clear Cache & Restart សម្រាប់ងាយស្រួលចុចលើទូរស័ព្ទ (ដាក់នៅ Sidebar ខាងលើគេបង្អស់)
+# 🧹 ប៊ូតុង Clear Cache & Restart
 with st.sidebar:
     st.markdown("---")
     if st.button("🧹 Clear Cache & Restart"):
@@ -23,7 +29,7 @@ with st.sidebar:
         st.success("បានលុប Cache និងចាប់ផ្តើមថ្មីជោគជ័យ!")
         st.rerun()
 
-# 🎨 Custom CSS សម្រាប់ Dark Mode ដ៏ប្រណិត
+# 🎨 Custom CSS សម្រាប់ Dark Mode
 st.markdown("""
     <style>
     .main {
@@ -45,133 +51,108 @@ st.markdown("""
         border-radius: 8px;
         border: 1px solid #334155;
     }
-    .stSelectbox>div>div>select {
-        background-color: #1e293b;
-        color: white;
-    }
     </style>
 """, unsafe_allow_html=True)
 
-# 📌 ចំណងជើងចម្បងរបស់แอป
-st.markdown("<h2 style='text-align: center; color: #a78bfa;'>🎬 Khmer Video AI</h2>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #94a3b8;'>ទាញយកអត្ថបទដើមពីវីដេអូជាមួយ Timestamps ស្វ័យប្រវត្តិ</p>", unsafe_allow_html=True)
+# 📌 ចំណងជើងចម្បង
+st.markdown("<h2 style='text-align: center; color: #a78bfa;'>🎬 Khmer Video AI Pro (Auto-Script & Dubbing)</h2>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8;'>ប្រព័ន្ធទាញយកស្គ្រីប និងបកប្រែអូតូដោយ Gemini API</p>", unsafe_allow_html=True)
 
-# 🗂️ បែងចែកផ្ទាំង (Tabs)
-tab_video, tab_translate, tab_audio, tab_sub, tab_download, tab_recap = st.tabs([
-    "🎬 វីដេអូ", 
-    "🌐 បកប្រែ", 
-    "🎙️ សំឡេង", 
-    "🔤 អក្សរ", 
-    "📥 ទាញយក", 
-    "🎞️ រីដេអូម"
-])
+# 🗂️ ផ្ទាំង Tabs
+tab_video, tab_audio, tab_download = st.tabs(["🎬 វីដេអូ & ទាញយកស្គ្រីបអូតូ", "🎙️ បញ្ចូលសំឡេង AI", "📥 ទាញយកលទ្ធផល"])
 
-# 🗄️ Session State Initialization
+# 🗄️ Session State
 if "script_input" not in st.session_state:
     st.session_state.script_input = ""
 if "uploaded_video" not in st.session_state:
     st.session_state.uploaded_video = None
 if "final_video_bytes" not in st.session_state:
     st.session_state.final_video_bytes = None
-if "generated_timestamp_script" not in st.session_state:
-    st.session_state.generated_timestamp_script = ""
 
 # -------------------------------------------------------------
-# 1. ផ្ទាំងវីដេអូ (Video Input + Whisper AI Original Text)
+# 1. ផ្ទាំងវីដេអូ និង Gemini Auto-Script
 # -------------------------------------------------------------
 with tab_video:
-    st.subheader("🎬 បញ្ចូលវីដេអូ ឬតំណភ្ជាប់ (Link)")
-    input_method = st.radio("ជ្រើសរើសវិធីសាស្ត្របញ្ចូល:", ["📤 Upload", "🔗 Link"], horizontal=True, key="input_method_radio")
+    st.subheader("🎬 បញ្ចូលវីដេអូសម្រាប់ទាញយកស្គ្រីបអូតូ")
     
-    if input_method == "📤 Upload":
-        uploaded_file = st.file_uploader("បន្ថែមវីដេអូពេញ (ទំហំក្រោម 200MB)", type=["mp4", "mov", "mkv", "avi", "webm"], key="vid_uploader")
+    # ប្រសិនបើរកមិនឃើញ Secrets ទេ បង្ហាញប្រអប់បញ្ចូល Key ជំនួសដើម្បីការពារការ Error
+    active_api_key = DEFAULT_GEMINI_API_KEY
+    if not active_api_key:
+        active_api_key = st.text_input("🔑 បញ្ចូល Gemini API Key របស់អ្នក:", type="password")
+
+    uploaded_file = st.file_uploader("បន្ថែមវីដេអូ (ទំហំក្រោម 200MB)", type=["mp4", "mov", "mkv", "avi"], key="vid_uploader")
+    
+    if uploaded_file is not None:
+        st.session_state.uploaded_video = uploaded_file
         
-        # រក្សាទុកវីដេអូចូល session_state ទុកជានិច្ចដើម្បីកុំឱ្យបាត់ពេលចុចប៊ូតុង
-        if uploaded_file is not None:
-            st.session_state.uploaded_video = uploaded_file
-            
-        if st.session_state.get("uploaded_video") is not None:
-            current_video = st.session_state.uploaded_video
-            st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
-            st.video(current_video)
-            
-            st.markdown("---")
-            st.markdown("### 🎙️ ទាញយកអត្ថបទដើមពីវីដេអូ (Whisper AI - Original Script)")
-            st.write("ចុចប៊ូតុងខាងក្រោមដើម្បីឱ្យ AI ទាញយកអត្ថបទដើម (ឧ. អក្សរចិន) មកជាមួយម៉ោងស្រាប់៖")
-            
-            if st.button("✨ ចាប់ផ្ដើមទាញយកអត្ថបទដើម", key="start_transcribe_btn"):
-                with st.spinner("⏳ AI កំពុងស្ដាប់សំឡេង និងបង្កើត Timestamps... (រង់ចាំបន្តិច)"):
+    if st.session_state.get("uploaded_video") is not None:
+        current_video = st.session_state.uploaded_video
+        st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
+        st.video(current_video)
+        
+        st.markdown("---")
+        st.markdown("### ✨ ទាញយកស្គ្រីប និងបកប្រែជាភាសាខ្មែរអូតូ (Gemini AI)")
+        
+        if st.button("🚀 ចាប់ផ្ដើមទាញយក និងបកប្រែស្គ្រីបអូតូ", key="start_gemini_transcribe"):
+            if not active_api_key:
+                st.warning("⚠️ សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
+            else:
+                with st.spinner("⏳ Gemini AI កំពុងអានវីដេអូ និងបង្កើតស្គ្រីបព្រមទាំង Timestamps... (រង់ចាំបន្តិច)"):
                     try:
+                        genai.configure(api_key=active_api_key)
+                        
                         tfile_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                         current_video.seek(0)
                         tfile_temp.write(current_video.read())
                         tfile_temp.close()
                         
-                        # ប្រើ Whisper model "tiny" ដើម្បីដំណើរការលឿននិងមិនស៊ី RAM
-                        model = whisper.load_model("tiny")
-                        result = model.transcribe(tfile_temp.name)
-                        os.remove(tfile_temp.name)
+                        video_file = genai.upload_file(path=tfile_temp.name)
                         
-                        extracted_script = ""
-                        for segment in result["segments"]:
-                            start_sec = int(segment["start"])
-                            end_sec = int(segment["end"])
-                            m_start, s_start = divmod(start_sec, 60)
-                            m_end, s_end = divmod(end_sec, 60)
-                            text_content = segment["text"].strip()
+                        import time
+                        while video_file.state.name == "PROCESSING":
+                            time.sleep(2)
+                            video_file = genai.get_file(video_file.name)
                             
-                            time_label = f"[{m_start:02d}:{s_start:02d} - {m_end:02d}:{s_end:02d}]"
-                            extracted_script += f"{time_label} {text_content}\n"
+                        model = genai.GenerativeModel('gemini-1.5-pro')
+                        prompt = """
+                        សូមស្ដាប់សំឡេងក្នុងវីដេអូនោះ រួចសរសេរជាស្គ្រីបសាច់រឿងជាភាសាខ្មែរដែលមានដាក់កាលកំណត់ពេល (Timestamps) ក្នុងទម្រង់បែបនេះឱ្យបានត្រឹមត្រូវ:
+                        [00:00 - 00:05] អត្ថបទនិយាយ...
+                        [00:05 - 00:10] អត្ថបទនិយាយ...
+                        សូមចេញលទ្ធផលជា Timestamps និងអត្ថបទសុទ្ធសាធសម្រាប់យកទៅធ្វើ Voiceover។
+                        """
                         
-                        st.session_state.generated_timestamp_script = extracted_script
-                        st.session_state.script_input = extracted_script
-                        st.success("🎉 ទាញយកអត្ថបទដើមជោគជ័យ!")
+                        response = model.generate_content([video_file, prompt])
+                        st.session_state.script_input = response.text
+                        
+                        os.remove(tfile_temp.name)
+                        genai.delete_file(video_file.name)
+                        
+                        st.success("🎉 ទាញយក និងបកប្រែស្គ្រីបអូតូបានជោគជ័យ!")
                     except Exception as e:
-                        st.error(f"មានបញ្ហាក្នុងការទាញយកអត្ថបទ: {e}")
-            
-            # បង្ហាញ Textarea ជានិច្ចនៅពេលមាន Script
-            if st.session_state.get("generated_timestamp_script"):
-                st.text_area(
-                    "📋 អត្ថបទដើមនិង Timestamps:",
-                    value=st.session_state.generated_timestamp_script,
-                    height=220,
-                    key="script_textarea_display"
-                )
-    else:
-        st.text_input("🔗 ដាក់ Link វីដេអូ (YouTube, TikTok, ฯលฯ):", key="link_input_field")
+                        st.error(f"មានបញ្ហាក្នុងការទាញយកស្គ្រីបពី Gemini: {e}")
 
-    st.markdown("---")
-    st.subheader("📊 គុណភាពវីដេអូ (Resolution)")
-    st.radio("ជ្រើសរើសកម្រិតច្បាស់:", ("⚡ លឿន 480p", "✨ ល្អ 720p", "💎 ខ្ពស់ (ដើម)"), horizontal=True, key="resolution_radio")
+        if st.session_state.get("script_input"):
+            st.text_area(
+                "📋 ស្គ្រីបដែលបានបង្កើត (អាចកែសម្រួលបានបើចង់):",
+                value=st.session_state.script_input,
+                height=250,
+                key="script_textarea_main"
+            )
 
 # -------------------------------------------------------------
-# 2. ផ្ទាំងបកប្រែ (Translation)
-# -------------------------------------------------------------
-with tab_translate:
-    st.subheader("🌐 ការកំណត់ម៉ាស៊ីនបកប្រែ")
-    st.selectbox("ម៉ាស៊ីនបកប្រែ:", ("✨ Gemini (ធម្មជាតិ)", "Google Translate Pro", "OpenAI GPT-4o"))
-    col_l1, col_l2 = st.columns(2)
-    with col_l1:
-        st.selectbox("ភាសាដើម", ["អង់គ្លេស (En)", "ថៃ (Th)", "ចិន (Zh)"])
-    with col_l2:
-        st.selectbox("បកប្រែទៅ", ["🇰🇭 ខ្មែរ (Khmer)"])
-
-# -------------------------------------------------------------
-# 3. ផ្ទាំងសំឡេង និងបញ្ចូលសំឡេងលើវីដេអូពេញ (Full Video Dubbing)
+# 2. ផ្ទាំងសំឡេង និងបញ្ចូលសំឡេងលើវីដេអូ (Full Dubbing)
 # -------------------------------------------------------------
 with tab_audio:
-    st.subheader("🎙️ បញ្ចូលសំឡេង AI លើវីដេអូពេញ (មិនកាត់ផ្ដាច់សាច់រឿង)")
+    st.subheader("🎙️ បញ្ចូលសំឡេង AI លើវីដេអូពេញ")
     
     voice_type = st.radio("សំឡេងនិយាយ:", ("👩 ស្រី (Sreymom)", "👨 ប្រុស (Piseth)"), key="voice_type_radio")
     selected_voice = "km-KH-SreymomNeural" if "ស្រី" in voice_type else "km-KH-PisethNeural"
     
-    keep_orig_audio = st.checkbox("🔊 រក្សាសំឡេងដើមក្នុងវីដេអូខ្លះ (Background Audio - 10%)", value=False)
-
     st.markdown("---")
     st.session_state.script_input = st.text_area(
-        "បញ្ចូល Timestamps និងអត្ថបទ (ឧទាហរណ៍: [00:00 - 00:05] សួស្តី...):",
+        "បញ្ចូល Timestamps និងអត្ថបទ (ទម្រង់: [00:00 - 00:05] សួស្តី...):",
         value=st.session_state.script_input,
-        height=140,
+        height=180,
         key="audio_tab_script_textarea"
     )
 
@@ -207,14 +188,14 @@ with tab_audio:
                 })
         return dialogues
 
-    if st.button("🎬 ចាប់ផ្តើមបញ្ចូលសំឡេង AI លើវីដេអូពេញ (.mp4)", key="start_dubbing_btn"):
+    if st.button("🎬 ចាប់ផ្តើមបញ្ចូលសំឡេង AI ចូលវីដេអូ", key="start_dubbing_btn"):
         script_text = st.session_state.script_input
         uploaded_video_file = st.session_state.get("uploaded_video", None)
         
         if not script_text.strip():
-            st.warning("⚠️ សូមបញ្ចូលស្គ្រីប ឬ Timestamps ជាមុនសិន!")
+            st.warning("⚠️ សូមបង្កើត ឬបញ្ចូលស្គ្រីបជាមុនសិន!")
         elif not uploaded_video_file:
-            st.warning("⚠️ សូម Upload វីដេអូនៅផ្ទាំង «វីដេអូ» ជាមុនសិន!")
+            st.warning("⚠️ សូម Upload វីដេអូនៅផ្ទាំងទី ១ ជាមុនសិន!")
         else:
             progress_bar = st.progress(0)
             status_text = st.empty()
@@ -229,12 +210,9 @@ with tab_audio:
                     tfile.write(uploaded_video_file.read())
                     tfile.close()
                     
-                    status_text.info("🎬 កំពុងផ្ទុកវីដេអូ និងបង្កើតសំឡេង AI...")
+                    status_text.info("🎬 កំពុងបង្កើតសំឡេង AI...")
                     video_clip = VideoFileClip(tfile.name)
-                    
                     audio_clips = []
-                    if video_clip.audio is not None and keep_orig_audio:
-                        audio_clips.append(video_clip.audio.volumex(0.1))
                     
                     total_items = len(dialogues)
                     temp_audio_files = []
@@ -251,7 +229,7 @@ with tab_audio:
                             
                         progress_bar.progress(int((i + 1) / total_items * 100))
                     
-                    status_text.info("🔄 កំពុងចងក្រងសំឡេង AI ចូលគ្នាជាមួយវីដេអូពេញ...")
+                    status_text.info("🔄 កំពុងចងក្រងវីដេអូចុងក្រោយ...")
                     final_audio = CompositeAudioClip(audio_clips)
                     final_video = video_clip.set_audio(final_audio)
                     
@@ -268,52 +246,23 @@ with tab_audio:
                     for p in temp_audio_files:
                         if os.path.exists(p): os.remove(p)
                         
-                    status_text.success("🎉 បញ្ចូលសំឡេង AI លើវីដេអូពេញបានរួចរាល់ជាស្រេច!")
+                    status_text.success("🎉 បញ្ចូលសំឡេង AI រួចរាល់ជាស្រេច!")
             except Exception as e:
                 st.error(f"មានបញ្ហាកើតឡើង: {e}")
 
-    # 📺 បង្ហាញវីដេអូពេញ និងប៊ូតុង Download
-    if st.session_state.get("final_video_bytes"):
-        st.markdown("---")
-        st.write("### 🎬 លទ្ធផលវីដេអូពេញ (Full Video ជាមួយសំឡេង AI):")
-        st.video(st.session_state.final_video_bytes)
-        st.download_button(
-            label="📥 ទាញយកវីដេអូពេញ (.mp4)",
-            data=st.session_state.final_video_bytes,
-            file_name="khmer_ai_full_dubbed_video.mp4",
-            mime="video/mp4",
-            key="audio_tab_download_btn"
-        )
-        st.markdown("---")
-
 # -------------------------------------------------------------
-# 4. ផ្ទាំងអក្សរ (Subtitle)
-# -------------------------------------------------------------
-with tab_sub:
-    st.subheader("🔤 ការកំណត់រចនាប័ទ្មអក្សរ Subtitle")
-    st.selectbox("Font អក្សរ:", ("Battambang", "Siemreap", "Moul"), key="font_select")
-    st.slider("ទំហំអក្សរ", 14, 40, 22, 1, key="font_size_slider")
-
-# -------------------------------------------------------------
-# 5. ផ្ទាំងទាញយក (Download Section)
+# 3. ផ្ទាំងទាញយកលទ្ធផល
 # -------------------------------------------------------------
 with tab_download:
-    st.subheader("📥 ទាញយកលទ្ធផលវីដេអូពេញ")
+    st.subheader("📥 ទាញយកវីដេអូចុងក្រោយ")
     if st.session_state.get("final_video_bytes"):
         st.video(st.session_state.final_video_bytes)
         st.download_button(
             label="📥 ទាញយកវីដេអូពេញ (.mp4)",
             data=st.session_state.final_video_bytes,
-            file_name="khmer_ai_full_dubbed_video.mp4",
+            file_name="khmer_ai_dubbed_video.mp4",
             mime="video/mp4",
-            key="download_tab_download_btn"
+            key="download_btn_final"
         )
     else:
-        st.info("មិនទាន់មានវីដេអូទេ! សូមបំពេញ Timestamps នៅផ្ទាំង «សំឡេង» ជាមុនសិន។")
-
-# -------------------------------------------------------------
-# 6. ផ្ទាំងរីដេអូម (Movie Recap History)
-# -------------------------------------------------------------
-with tab_recap:
-    st.subheader("🎞️ ប្រវត្តិរីដេអូម")
-    st.markdown("<p style='color: #94a3b8;'>វីដេអូដែលបានបង្កើតរួចនឹងត្រូវបានរក្សាទុកនៅទីនេះ។</p>", unsafe_allow_html=True)
+        st.info("មិនទាន់មានវីដេអូទេ! សូមបំពេញដំណើរការនៅផ្ទាំងមុនៗសិន។")
