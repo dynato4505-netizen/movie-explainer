@@ -1,6 +1,3 @@
 streamlit
-edge-tts
-moviepy
-opencv-python
-yt-dlp
+gtts
 google-genai
