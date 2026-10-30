@@ -5,8 +5,6 @@ import os
 import tempfile
 import time
 import re
-import zipfile
-import io
 import cv2
 from google import genai
 
@@ -72,8 +70,8 @@ if "script_input" not in st.session_state:
     st.session_state.script_input = ""
 if "uploaded_video_file" not in st.session_state:
     st.session_state.uploaded_video_file = None
-if "zip_buffer" not in st.session_state:
-    st.session_state.zip_buffer = None
+if "single_audio_bytes" not in st.session_state:
+    st.session_state.single_audio_bytes = None
 if "split_zip_buffer" not in st.session_state:
     st.session_state.split_zip_buffer = None
 if "recap_history" not in st.session_state:
@@ -104,7 +102,7 @@ with tab_video:
 # -------------------------------------------------------------
 with tab_script:
     st.subheader("📝 បង្កើតស្គ្រីបជាភាសាខ្មែរ និងកំណត់ពេលវេលាអូតូពី Gemini AI")
-    st.markdown("<p style='color: #94a3b8;'>បញ្ចូលតំណភ្ជាប់ ឬបញ្ជាដើម្បីឱ្យ AI ចងក្រងស្គ្រីបតាមទម្រង់ [00:01 - 00:04] អត្ថបទ ជាភាសាខ្មែរដាច់ខាត៖</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8;'>បញ្ចូលបញ្ជាដើម្បីឱ្យ AI ចងក្រងស្គ្រីបតាមទម្រង់ [00:01 - 00:04] អត្ថបទ ជាភាសាខ្មែរដាច់ខាត៖</p>", unsafe_allow_html=True)
     
     ai_prompt_input = st.text_area(
         "បញ្ជា AI (ឧទាហរណ៍: សូមសរសេរស្គ្រីបសង្ខេបសាច់រឿង):",
@@ -137,7 +135,7 @@ with tab_script:
                     st.error(f"មានបញ្ហាក្នុងការបង្កើតស្គ្រីប: {e}")
 
     st.markdown("---")
-    st.subheader("📋 ស្គ្រីបចុងក្រោយ (ទ្រង់ទ្រង់ [00:01 - 00:04] ភាសាខ្មែរ):")
+    st.subheader("📋 ស្គ្រីបចុងក្រោយ (ទ្រង់ទ្រាយ [00:01 - 00:04] ភាសាខ្មែរ):")
     st.session_state.script_input = st.text_area(
         "កែសម្រួលអត្ថបទ ឬ Timestamps នៅទីនេះ:",
         value=st.session_state.script_input,
@@ -169,6 +167,9 @@ with tab_split:
                 filename_safe = f"[{match[0]} - {match[1]}]".replace(":", "-")
                 intervals.append({"name": filename_safe, "start": start_sec, "end": end_sec})
         return intervals
+
+    import zipfile
+    import io
 
     if st.button("✂️ ចាប់ផ្តើមកាត់វីដេអូជាបំណែកៗ (.ZIP)"):
         if not st.session_state.get("uploaded_video_file"):
@@ -260,77 +261,63 @@ with tab_translate:
         target_lang = st.selectbox("បកប្រែទៅ", ["🇰🇭 ខ្មែរ (Khmer)"])
 
 # -------------------------------------------------------------
-# 5. ផ្ទាំងសំឡេង AI (Voice Dubbing & Edge-TTS)
+# 5. ផ្ទាំងសំឡេង AI (Voice Dubbing & Edge-TTS - Single MP3 Audio)
 # -------------------------------------------------------------
 with tab_audio:
-    st.subheader("🎙️ ជ្រើសរើសសំឡេងនិយាយ (Edge-TTS)")
+    st.subheader("🎙️ បម្លែងស្គ្រីបទៅជាសំឡេង MP3 តែមួយ (Voiceover)")
     voice_type = st.radio("សំឡេងនិយាយ:", ("👩 ស្រី (Sreymom)", "👨 ប្រុស (Piseth)"))
     selected_voice = "km-KH-SreymomNeural" if "ស្រី" in voice_type else "km-KH-PisethNeural"
 
     st.markdown("---")
-    st.subheader("📝 បម្លែងស្គ្រីបពីផ្ទាំង «ស្គ្រីប AI» ទៅជាអូឌីយ៉ូ ZIP")
-    st.info("ស្គ្រីបដែលបានសរសេរនៅផ្ទាំងទី ២ នឹងត្រូវយកមកប្រើប្រាស់ទីនេះដោយស្វ័យប្រវត្តិ។")
+    st.info("ប្រព័ន្ធនឹងទាញយកអត្ថបទទាំងអស់ពីផ្ទាំង «ស្គ្រីប AI» មកបម្លែងជាសំឡេង MP3 តែមួយដោយរលូនសម្រាប់យកទៅកាត់ត។")
 
-    async def generate_tts_safe(text, voice, output_path, rate="+0%", pitch="+0Hz"):
-        for attempt in range(3):
-            try:
-                communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
-                await communicate.save(output_path)
-                if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-                    return True
-            except Exception:
-                if attempt == 2:
-                    return False
-                await asyncio.sleep(1)
+    async def generate_single_tts(text, voice, output_path):
+        try:
+            communicate = edge_tts.Communicate(text, voice)
+            await communicate.save(output_path)
+            if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                return True
+        except Exception:
+            pass
         return False
 
-    def parse_timestamps(text):
-        pattern = r'\[\s*(\d{1,2}:\d{2})\s*(?:-\s*(\d{1,2}:\d{2}))?\s*\]\s*(.*)'
-        matches = re.findall(pattern, text)
-        dialogues = []
-        for match in matches:
-            start_str = match[0]
-            end_str = match[1] if match[1] else match[0]
-            content = match[2].strip()
-            if content:
-                filename_safe = f"[{start_str} - {end_str}]".replace(":", "-")
-                dialogues.append({"time_label": filename_safe, "text": content})
-        return dialogues
-
-    if st.button("🎙️ ចាប់ផ្តើមបង្កើតកញ្ចប់អូឌីយ៉ូ ZIP តាម Timestamps"):
+    if st.button("🎙️ ចាប់ផ្ដើមបង្កើតសំឡេង MP3 តែមួយ"):
         script_text = st.session_state.script_input
         if not script_text.strip():
             st.warning("⚠️ សូមបញ្ចូលស្គ្រីបនៅផ្ទាំង «ស្គ្រីប AI» ជាមុនសិន!")
         else:
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            try:
-                dialogues = parse_timestamps(script_text)
-                if not dialogues:
-                    st.error("❌ ទម្រង់ Timestamps ក្នុងស្គ្រីបមិនត្រឹមត្រូវទេ។")
-                else:
-                    total_items = len(dialogues)
-                    zip_io = io.BytesIO()
+            with st.spinner("⏳ កំពុងបង្កើតសំឡេង MP3 តែមួយ... (រង់ចាំបន្តិច)"):
+                try:
+                    # Clean timestamps to generate clean narration audio
+                    clean_text = re.sub(r'\[\s*\d{1,2}:\d{2}\s*(?:-\s*\d{1,2}:\d{2})?\s*\]', '', script_text)
+                    clean_text = re.sub(r'\n\s*\n', '\n', clean_text).strip()
                     
-                    with zipfile.ZipFile(zip_io, mode='w', compression=zipfile.ZIP_DEFLATED) as zipf:
-                        for i, item in enumerate(dialogues):
-                            status_text.info(f"🎙️ កំពុងបង្កើតសំឡេងទី {i+1} នៃ {total_items}...")
-                            chunk_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
-                            asyncio.run(generate_tts_safe(item["text"], selected_voice, chunk_path))
-                            
-                            if os.path.exists(chunk_path) and os.path.getsize(chunk_path) > 0:
-                                arcname = f"{item['time_label']}.mp3"
-                                zipf.write(chunk_path, arcname=arcname)
-                                os.remove(chunk_path)
-                            
-                            time.sleep(0.05)
-                            progress_bar.progress(int((i + 1) / total_items * 100))
+                    temp_audio = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
+                    temp_audio.close()
+                    
+                    success = asyncio.run(generate_single_tts(clean_text, selected_voice, temp_audio.name))
+                    
+                    if success:
+                        with open(temp_audio.name, "rb") as f:
+                            st.session_state.single_audio_bytes = f.read()
+                        if os.path.exists(temp_audio.name):
+                            os.remove(temp_audio.name)
+                        st.success("🎉 បង្កើតសំឡេង MP3 បានជោគជ័យរួចរាល់!")
+                    else:
+                        st.error("❌ មានបញ្ហាក្នុងการបង្កើតសំឡេង!")
+                except Exception as e:
+                    st.error(f"មានបញ្ហា: {e}")
 
-                    st.session_state.zip_buffer = zip_io.getvalue()
-                    status_text.success("🎉 បង្កើតកញ្ចប់អូឌីយ៉ូ ZIP ជោគជ័យ ១០០%!")
-            except Exception as e:
-                st.error(f"មានបញ្ហាកើតឡើង: {e}")
+    if st.session_state.get("single_audio_bytes"):
+        st.markdown("---")
+        st.subheader("🎧 ស្ដាប់ និងទាញយកសំឡេង MP3")
+        st.audio(st.session_state.single_audio_bytes, format="audio/mp3")
+        st.download_button(
+            label="📥 ទាញយកឯកសារសំឡេង MP3",
+            data=st.session_state.single_audio_bytes,
+            file_name="khmer_voiceover_recap.mp3",
+            mime="audio/mp3"
+        )
 
 # -------------------------------------------------------------
 # 6. ផ្ទាំងអក្សរ (Subtitle Styling)
@@ -344,14 +331,14 @@ with tab_sub:
 # 7. ផ្ទាំងទាញយក (Download Section)
 # -------------------------------------------------------------
 with tab_download:
-    st.subheader("📥 ទាញយកលទ្ធផលអូឌីយ៉ូ")
-    if st.session_state.zip_buffer:
-        st.success("🎉 កញ្ចប់អូឌីយ៉ូតាម Timestamps រួចរាល់សម្រាប់ទាញយកហើយ!")
+    st.subheader("📥 ទាញយកលទ្ធផលអូឌីយ៉ូ MP3")
+    if st.session_state.get("single_audio_bytes"):
+        st.success("🎉 សំឡេង MP3 រួចរាល់សម្រាប់ទាញយកហើយ!")
         st.download_button(
-            label="📥 ទាញយកកញ្ចប់អូឌីយ៉ូទាំងអស់ (.ZIP)",
-            data=st.session_state.zip_buffer,
-            file_name="khmer_movie_audio_chunks.zip",
-            mime="application/zip"
+            label="📥 ទាញយកឯកសារសំឡេង MP3",
+            data=st.session_state.single_audio_bytes,
+            file_name="khmer_voiceover_recap.mp3",
+            mime="audio/mp3"
         )
     else:
         st.info("មិនទាន់មានលទ្ធផលអូឌីយ៉ូទេ!")
@@ -362,4 +349,3 @@ with tab_download:
 with tab_recap:
     st.subheader("🎞️ ប្រវត្តិរីដេអូម (Movie Recap History)")
     st.info("ប្រវត្តិវីដេអូសម្រាយរឿងដែលបានបង្កើតនឹងបង្ហាញនៅទីនេះ។")
-    
