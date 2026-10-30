@@ -55,7 +55,7 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("⚙️ ការកំណត់ Gemini API Key")
 user_api_key = st.sidebar.text_input("🔑 បញ្ចូល API Key របស់អ្នក:", type="password", value="")
 
-# 🗂️ បែងចែកផ្ទាំង (Tabs) - រួមបញ្ចូលទាំងផ្ទាំង "ស្គ្រីប AI" ថ្មី
+# 🗂️ បែងចែកផ្ទាំង (Tabs)
 tab_video, tab_script, tab_split, tab_translate, tab_audio, tab_sub, tab_download, tab_recap = st.tabs([
     "🎬 វីដេអូ", 
     "📝 ស្គ្រីប AI",
@@ -100,38 +100,44 @@ with tab_video:
     )
 
 # -------------------------------------------------------------
-# 2. ផ្ទាំងស្គ្រីប AI (Script Generator & Editor) - ថ្មី!
+# 2. ផ្ទាំងស្គ្រីប AI (Script Generator & Strict Khmer Format)
 # -------------------------------------------------------------
 with tab_script:
-    st.subheader("📝 បង្កើត និងកែសម្រួលស្គ្រីបសម្រាយរឿងដោយ Gemini AI")
-    st.markdown("<p style='color: #94a3b8;'>សរសេរបញ្ជា ឬឱ្យ Gemini AI ຊួយបង្កើតស្គ្រីបព្រមទាំង Timestamps សម្រាប់យកទៅប្រើប្រាស់:</p>", unsafe_allow_html=True)
+    st.subheader("📝 បង្កើតស្គ្រីបជាភាសាខ្មែរ និងកំណត់ពេលវេលាអូតូពី Gemini AI")
+    st.markdown("<p style='color: #94a3b8;'>បញ្ចូលតំណភ្ជាប់ ឬបញ្ជាដើម្បីឱ្យ AI ចងក្រងស្គ្រីបតាមទម្រង់ [00:01 - 00:04] អត្ថបទ ជាភាសាខ្មែរដាច់ខាត៖</p>", unsafe_allow_html=True)
     
     ai_prompt_input = st.text_area(
-        "បញ្ជា AI ឱ្យសរសេរស្គ្រីប (ឧទាហរណ៍: សូមសរសេរស្គ្រីបសម្រាយរឿងភាគសង្ខេប ជាភាសាខ្មែរ មានដាក់ Timestamps [00:00 - 00:05]):",
+        "បញ្ជា AI (ឧទាហរណ៍: សូមសរសេរស្គ្រីបសង្ខេបសាច់រឿង):",
         height=100,
         key="ai_prompt_box"
     )
 
-    if st.button("🚀 ឱ្យ Gemini AI សរសេរស្គ្រីបអូតូ"):
+    if st.button("🚀 ឱ្យ Gemini AI សរសេរស្គ្រីបខ្មែរអូតូ"):
         if not user_api_key.strip():
             st.warning("⚠️ សូមវាយបញ្ចូល Gemini API Key នៅ Sidebar ខាងឆ្វេងជាមុនសិន!")
         elif not ai_prompt_input.strip():
             st.warning("⚠️ សូមសរសេរបញ្ជា (Prompt) ជាមុនសិន!")
         else:
-            with st.spinner("⏳ Gemini AI កំពុងសរសេរស្គ្រីប... (រង់ចាំបន្តិច)"):
+            with st.spinner("⏳ Gemini AI កំពុងសរសេរស្គ្រីបជាភាសាខ្មែរ... (រង់ចាំបន្តិច)"):
                 try:
                     client = genai.Client(api_key=user_api_key.strip())
+                    strict_prompt = (
+                        f"{ai_prompt_input}\n\n"
+                        "សូមបកប្រែ ឬសរសេរជាភាសាខ្មែរដាច់ខាត ហាមមានអក្សរអង់គ្លេស ឬភាសាដទៃឡើយ។ "
+                        "ទម្រង់នៃការសរសេរត្រូវតែមានកំណត់ពេលវេលាពិតប្រាកដតាមទម្រង់នេះប៉ុណ្ណោះ៖ "
+                        "[00:01 - 00:04] អត្ថបទជាភាសាខ្មែរ..."
+                    )
                     response = client.models.generate_content(
                         model='gemini-3.8-flash',
-                        contents=ai_prompt_input
+                        contents=strict_prompt
                     )
                     st.session_state.script_input = response.text
-                    st.success("🎉 បង្កើតស្គ្រីបបានជោគជ័យ!")
+                    st.success("🎉 បង្កើតស្គ្រីបភាសាខ្មែរបានជោគជ័យ!")
                 except Exception as e:
                     st.error(f"មានបញ្ហាក្នុងការបង្កើតស្គ្រីប: {e}")
 
     st.markdown("---")
-    st.subheader("📋 ស្គ្រីបចុងក្រោយ (អាចកែសម្រួលផ្ទាល់បាន):")
+    st.subheader("📋 ស្គ្រីបចុងក្រោយ (ទ្រង់ទ្រង់ [00:01 - 00:04] ភាសាខ្មែរ):")
     st.session_state.script_input = st.text_area(
         "កែសម្រួលអត្ថបទ ឬ Timestamps នៅទីនេះ:",
         value=st.session_state.script_input,
@@ -356,3 +362,4 @@ with tab_download:
 with tab_recap:
     st.subheader("🎞️ ប្រវត្តិរីដេអូម (Movie Recap History)")
     st.info("ប្រវត្តិវីដេអូសម្រាយរឿងដែលបានបង្កើតនឹងបង្ហាញនៅទីនេះ។")
+    
