@@ -1,3 +1,4 @@
 streamlit
-gtts
+edge-tts
 google-genai
+opencv-python
