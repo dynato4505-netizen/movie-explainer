@@ -7,12 +7,6 @@ import re
 import google.generativeai as genai
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip
 
-# 🔑 ហៅយក API Key ដោយសុវត្ថិភាពពី Streamlit Secrets (Settings -> Secrets នៅលើ Streamlit Cloud)
-try:
-    DEFAULT_GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
-except:
-    DEFAULT_GEMINI_API_KEY = ""
-
 # 🌟 កំណត់ទម្រង់ទំព័រឱ្យធំទូលាយស្អាត (Wide Mode)
 st.set_page_config(
     page_title="Khmer Video AI Pro - បញ្ចូលសំឡេង AI លើវីដេអូ",
@@ -58,6 +52,11 @@ st.markdown("""
 st.markdown("<h2 style='text-align: center; color: #a78bfa;'>🎬 Khmer Video AI Pro (Auto-Script & Dubbing)</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #94a3b8;'>ប្រព័ន្ធទាញយកស្គ្រីប និងបកប្រែអូតូដោយ Gemini API</p>", unsafe_allow_html=True)
 
+# 🔑 ប្រអប់សម្រាប់វាយបញ្ចូល API Key នៅលើអេក្រង់ផ្ទាល់ (ងាយស្រួលប្ដូរ)
+st.sidebar.markdown("---")
+st.sidebar.subheader("⚙️ ការកំណត់ API Key")
+user_api_key = st.sidebar.text_input("🔑 បញ្ចូល Gemini API Key របស់អ្នក:", type="password", value="")
+
 # 🗂️ ផ្ទាំង Tabs
 tab_video, tab_audio, tab_download = st.tabs(["🎬 វីដេអូ & ទាញយកស្គ្រីបអូតូ", "🎙️ បញ្ចូលសំឡេង AI", "📥 ទាញយកលទ្ធផល"])
 
@@ -75,11 +74,6 @@ if "final_video_bytes" not in st.session_state:
 with tab_video:
     st.subheader("🎬 បញ្ចូលវីដេអូសម្រាប់ទាញយកស្គ្រីបអូតូ")
     
-    # ប្រសិនបើរកមិនឃើញ Secrets ទេ បង្ហាញប្រអប់បញ្ចូល Key ជំនួសដើម្បីការពារការ Error
-    active_api_key = DEFAULT_GEMINI_API_KEY
-    if not active_api_key:
-        active_api_key = st.text_input("🔑 បញ្ចូល Gemini API Key របស់អ្នក:", type="password")
-
     uploaded_file = st.file_uploader("បន្ថែមវីដេអូ (ទំហំក្រោម 200MB)", type=["mp4", "mov", "mkv", "avi"], key="vid_uploader")
     
     if uploaded_file is not None:
@@ -94,12 +88,12 @@ with tab_video:
         st.markdown("### ✨ ទាញយកស្គ្រីប និងបកប្រែជាភាសាខ្មែរអូតូ (Gemini AI)")
         
         if st.button("🚀 ចាប់ផ្ដើមទាញយក និងបកប្រែស្គ្រីបអូតូ", key="start_gemini_transcribe"):
-            if not active_api_key:
-                st.warning("⚠️ សូមបញ្ចូល Gemini API Key ជាមុនសិន!")
+            if not user_api_key.strip():
+                st.warning("⚠️ សូមវាយបញ្ចូល Gemini API Key នៅកន្លែង Sidebar ខាងឆ្វេងជាមុនសិន!")
             else:
                 with st.spinner("⏳ Gemini AI កំពុងអានវីដេអូ និងបង្កើតស្គ្រីបព្រមទាំង Timestamps... (រង់ចាំបន្តិច)"):
                     try:
-                        genai.configure(api_key=active_api_key)
+                        genai.configure(api_key=user_api_key.strip())
                         
                         tfile_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                         current_video.seek(0)
@@ -266,3 +260,4 @@ with tab_download:
         )
     else:
         st.info("មិនទាន់មានវីដេអូទេ! សូមបំពេញដំណើរការនៅផ្ទាំងមុនៗសិន។")
+    
