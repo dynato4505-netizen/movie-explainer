@@ -1,144 +1,358 @@
 import streamlit as st
+import asyncio
+import edge_tts
 import os
 import tempfile
-from gtts import gTTS
+import time
+import re
+import zipfile
+import io
+import cv2
 from google import genai
 
-# 🌟 កំណត់ទំព័រឱ្យធំទូលាយ
+# 🌟 កំណត់ទម្រង់ទំព័រឱ្យធំទូលាយស្អាត (Wide Mode)
 st.set_page_config(
-    page_title="Khmer Video AI Pro (Auto Video Dubbing)",
+    page_title="Khmer Video AI - បកប្រែវីដេអូ និងបង្កើតអក្សរ/សំឡេងខ្មែរ",
     page_icon="🎬",
     layout="wide"
 )
 
-# 🧹 Clear Cache Button
-with st.sidebar:
-    st.markdown("---")
-    if st.button("🧹 Clear Cache & Restart"):
-        st.cache_data.clear()
-        st.cache_resource.clear()
-        st.success("បានលុប Cache និងចាប់ផ្តើមថ្មីជោគជ័យ!")
-        st.rerun()
-
-# 🎨 Custom CSS សម្រាប់ Dark Theme
+# 🎨 Custom CSS សម្រាប់ Dark Mode ដ៏ប្រណិត
 st.markdown("""
     <style>
-    .main { background-color: #0b0f19; color: #ffffff; }
+    .main {
+        background-color: #0b0f19;
+        color: #ffffff;
+    }
     .stButton>button {
         background: linear-gradient(45deg, #8b5cf6, #3b82f6);
-        color: white; border-radius: 10px; border: none;
-        padding: 12px 24px; font-weight: bold; width: 100%;
+        color: white;
+        border-radius: 10px;
+        border: none;
+        padding: 12px 24px;
+        font-weight: bold;
+        width: 100%;
     }
     .stTextInput>div>div>input, .stTextArea>div>div>textarea {
-        background-color: #1e293b; color: white; border-radius: 8px; border: 1px solid #334155;
+        background-color: #1e293b;
+        color: white;
+        border-radius: 8px;
+        border: 1px solid #334155;
+    }
+    .stSelectbox>div>div>select {
+        background-color: #1e293b;
+        color: white;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# 📌 ចំណងជើង
-st.markdown("<h2 style='text-align: center; color: #a78bfa;'>🎬 Khmer Video AI Pro (Auto Video Dubbing)</h2>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #94a3b8;'>ប្រព័ន្ធទាញយកស្គ្រីប និងបង្កើតសំឡេង AI ភ្ជាប់ជាមួយវីដេអូ</p>", unsafe_allow_html=True)
+# 📌 ចំណងជើងចម្បងរបស់แอป
+st.markdown("<h2 style='text-align: center; color: #a78bfa;'>🎬 Khmer Video AI Pro</h2>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8;'>បកប្រែវីដេអូ កាត់តកំណាត់ បង្កើតស្គ្រីប និងសំឡេងខ្មែរដោយ AI</p>", unsafe_allow_html=True)
 
-# 🔑 Sidebar API Key
+# 🔑 Sidebar សម្រាប់ដាក់ Gemini API Key (AQ...)
 st.sidebar.markdown("---")
-st.sidebar.subheader("⚙️ ការកំណត់ API Key")
-user_api_key = st.sidebar.text_input("🔑 បញ្ចូល Gemini API Key:", type="password", value="")
+st.sidebar.subheader("⚙️ ការកំណត់ Gemini API Key")
+user_api_key = st.sidebar.text_input("🔑 បញ្ចូល API Key របស់អ្នក:", type="password", value="")
 
-# 🗄️ Session States
+# 🗂️ បែងចែកផ្ទាំង (Tabs) - រួមបញ្ចូលទាំងផ្ទាំង "ស្គ្រីប AI" ថ្មី
+tab_video, tab_script, tab_split, tab_translate, tab_audio, tab_sub, tab_download, tab_recap = st.tabs([
+    "🎬 វីដេអូ", 
+    "📝 ស្គ្រីប AI",
+    "✂️ កាត់វីដេអូ",
+    "🌐 បកប្រែ", 
+    "🎙️ សំឡេង", 
+    "🔤 អក្សរ", 
+    "📥 ទាញយក", 
+    "🎞️ រីដេអូម"
+])
+
+# 🗄️ Session State Initialization
 if "script_input" not in st.session_state:
     st.session_state.script_input = ""
-if "uploaded_video" not in st.session_state:
-    st.session_state.uploaded_video = None
-if "audio_bytes" not in st.session_state:
-    st.session_state.audio_bytes = None
+if "uploaded_video_file" not in st.session_state:
+    st.session_state.uploaded_video_file = None
+if "zip_buffer" not in st.session_state:
+    st.session_state.zip_buffer = None
+if "split_zip_buffer" not in st.session_state:
+    st.session_state.split_zip_buffer = None
+if "recap_history" not in st.session_state:
+    st.session_state.recap_history = []
 
 # -------------------------------------------------------------
-# 1. ផ្ទាំង Upload វីដេអូ និងទាញយកស្គ្រីបអូតូ
+# 1. ផ្ទាំងវីដេអូ (Video Input)
 # -------------------------------------------------------------
-st.subheader("🎬 ជំហានទី ១៖ បញ្ចូលវីដេអូ និងទាញយកស្គ្រីបអូតូ (Gemini AI)")
-
-uploaded_file = st.file_uploader("📂 ជ្រើសរើសវីដេអូ (MP4, MOV, AVI):", type=["mp4", "mov", "mkv", "avi"], key="vid_up")
-if uploaded_file is not None:
-    st.session_state.uploaded_video = uploaded_file
-
-if st.session_state.get("uploaded_video") is not None:
-    st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
-    st.video(st.session_state.uploaded_video)
+with tab_video:
+    st.subheader("🎬 បញ្ចូលវីដេអូសម្រាប់កាត់ត និងសម្រាយ")
     
-    if st.button("🚀 ទាញយកស្គ្រីបអូតូពីវីដេអូ (Gemini AI)") :
+    uploaded_video = st.file_uploader("បន្ថែមវីដេអូ (MP4, MKV, MOV, AVI)", type=["mp4", "mov", "mkv", "avi", "webm"])
+    if uploaded_video:
+        st.session_state.uploaded_video_file = uploaded_video
+        st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
+        st.video(uploaded_video)
+
+    st.markdown("---")
+    st.subheader("📊 គុណភាពវីដេអូ (Resolution)")
+    resolution = st.radio(
+        "ជ្រើសរើសកម្រិតច្បាស់:",
+        ("⚡ លឿន 480p", "✨ ល្អ 720p", "💎 ខ្ពស់ (ដើម)"),
+        horizontal=True
+    )
+
+# -------------------------------------------------------------
+# 2. ផ្ទាំងស្គ្រីប AI (Script Generator & Editor) - ថ្មី!
+# -------------------------------------------------------------
+with tab_script:
+    st.subheader("📝 បង្កើត និងកែសម្រួលស្គ្រីបសម្រាយរឿងដោយ Gemini AI")
+    st.markdown("<p style='color: #94a3b8;'>សរសេរបញ្ជា ឬឱ្យ Gemini AI ຊួយបង្កើតស្គ្រីបព្រមទាំង Timestamps សម្រាប់យកទៅប្រើប្រាស់:</p>", unsafe_allow_html=True)
+    
+    ai_prompt_input = st.text_area(
+        "បញ្ជា AI ឱ្យសរសេរស្គ្រីប (ឧទាហរណ៍: សូមសរសេរស្គ្រីបសម្រាយរឿងភាគសង្ខេប ជាភាសាខ្មែរ មានដាក់ Timestamps [00:00 - 00:05]):",
+        height=100,
+        key="ai_prompt_box"
+    )
+
+    if st.button("🚀 ឱ្យ Gemini AI សរសេរស្គ្រីបអូតូ"):
         if not user_api_key.strip():
-            st.warning("⚠️ សូមបញ្ចូល Gemini API Key នៅ Sidebar ខាងឆ្វេងជាមុនសិន!")
+            st.warning("⚠️ សូមវាយបញ្ចូល Gemini API Key នៅ Sidebar ខាងឆ្វេងជាមុនសិន!")
+        elif not ai_prompt_input.strip():
+            st.warning("⚠️ សូមសរសេរបញ្ជា (Prompt) ជាមុនសិន!")
         else:
-            with st.spinner("⏳ Gemini AI កំពុងអានវីដេអូ និងបង្កើតស្គ្រីប..."):
+            with st.spinner("⏳ Gemini AI កំពុងសរសេរស្គ្រីប... (រង់ចាំបន្តិច)"):
                 try:
                     client = genai.Client(api_key=user_api_key.strip())
-                    tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
-                    st.session_state.uploaded_video.seek(0)
-                    tfile.write(st.session_state.uploaded_video.read())
-                    tfile.close()
-                    
-                    video_file = client.files.upload(file=tfile.name)
-                    import time
-                    while video_file.state.name == "PROCESSING":
-                        time.sleep(2)
-                        video_file = client.files.get(name=video_file.name)
-                        
                     response = client.models.generate_content(
                         model='gemini-3.8-flash',
-                        contents=[video_file, "សូមស្ដាប់សំឡេងក្នុងវីដេអូនេះ រួចសរសេរជាស្គ្រីបសាច់រឿងជាភាសាខ្មែរសម្រាប់ធ្វើ Voiceover។"]
+                        contents=ai_prompt_input
                     )
                     st.session_state.script_input = response.text
-                    os.remove(tfile.name)
-                    client.files.delete(name=video_file.name)
-                    st.success("🎉 ទាញយកស្គ្រីបបានជោគជ័យ!")
+                    st.success("🎉 បង្កើតស្គ្រីបបានជោគជ័យ!")
                 except Exception as e:
-                    st.error(f"មានបញ្ហា: {e}")
+                    st.error(f"មានបញ្ហាក្នុងការបង្កើតស្គ្រីប: {e}")
 
-# -------------------------------------------------------------
-# 2. ផ្ទាំងកែសម្រួលស្គ្រីប និងបង្កើតសំឡេង AI
-# -------------------------------------------------------------
-st.markdown("---")
-st.subheader("🎙️ ជំហានទី ២៖ កែសម្រួលស្គ្រីប និងបង្កើតសំឡេង AI")
-
-st.session_state.script_input = st.text_area(
-    "📋 ស្គ្រីបសម្រាប់អាន (អាចកែសម្រួលបាន):",
-    value=st.session_state.script_input,
-    height=200
-)
-
-if st.button("🔊 ចាប់ផ្ដើមបង្កើតសំឡេង AI (.mp3)"):
-    script_text = st.session_state.script_input
-    if not script_text.strip():
-        st.warning("⚠️ សូមបញ្ចូលស្គ្រីបជាមុនសិន!")
-    else:
-        with st.spinner("⏳ កំពុងបង្កើតសំឡេង AI..."):
-            try:
-                tts = gTTS(text=script_text, lang='km', slow=False)
-                temp_audio = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
-                tts.save(temp_audio.name)
-                temp_audio.close()
-                
-                with open(temp_audio.name, "rb") as f:
-                    st.session_state.audio_bytes = f.read()
-                if os.path.exists(temp_audio.name):
-                    os.remove(temp_audio.name)
-                    
-                st.success("🎉 បង្កើតសំឡេង AI រួចរាល់ជាស្រេច!")
-            except Exception as e:
-                st.error(f"មានបញ្ហា: {e}")
-
-# -------------------------------------------------------------
-# 3. ផ្ទាំងទាញយកលទ្ធផល
-# -------------------------------------------------------------
-if st.session_state.get("audio_bytes"):
     st.markdown("---")
-    st.subheader("📥 ជំហានទី ៣៖ ទាញយកលទ្ធផលសំឡេង AI ទៅប្រើប្រាស់")
-    st.audio(st.session_state.audio_bytes, format="audio/mp3")
-    st.download_button(
-        label="📥 ទាញយកឯកសារសំឡេង MP3",
-        data=st.session_state.audio_bytes,
-        file_name="ai_dubbed_audio.mp3",
-        mime="audio/mp3"
+    st.subheader("📋 ស្គ្រីបចុងក្រោយ (អាចកែសម្រួលផ្ទាល់បាន):")
+    st.session_state.script_input = st.text_area(
+        "កែសម្រួលអត្ថបទ ឬ Timestamps នៅទីនេះ:",
+        value=st.session_state.script_input,
+        height=250,
+        key="main_script_editor"
     )
-    st.info("💡 ចំណាំ៖ បងអាចយកវីដេអូដើម និងសំឡេង MP3 នេះទៅដាក់ចូលក្នុង CapCut ឬកម្មវិធីកាត់តណាមួយដើម្បីรวมគ្នាបានយ៉ាងងាយស្រួល និងរហ័សបំផុត ដោយធានាថាអត់មាន Error គាំង Server ទៀតទេ។")
+
+# -------------------------------------------------------------
+# 3. ផ្ទាំងកាត់វីដេអូជាកំណាត់ៗតាម Timestamps (Video Splitter)
+# -------------------------------------------------------------
+with tab_split:
+    st.subheader("✂️ កាត់វីដេអូជាបំណែកៗតាម Timestamps")
+    st.markdown("<p style='color: #94a3b8;'>ប្រព័ន្ធនឹងយករស្គ្រីបខាងលើមកកាត់វីដេអូចេញជាកំណាត់ៗស្វ័យប្រវត្តក្នុងកញ្ចប់ ZIP៖</p>", unsafe_allow_html=True)
+    
+    def time_to_seconds(time_str):
+        parts = list(map(int, time_str.split(':')))
+        if len(parts) == 2:
+            return parts[0] * 60 + parts[1]
+        return parts[0]
+
+    def parse_time_intervals(text):
+        pattern = r'\[\s*(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s*\]'
+        matches = re.findall(pattern, text)
+        intervals = []
+        for match in matches:
+            start_sec = time_to_seconds(match[0])
+            end_sec = time_to_seconds(match[1])
+            if end_sec > start_sec:
+                filename_safe = f"[{match[0]} - {match[1]}]".replace(":", "-")
+                intervals.append({"name": filename_safe, "start": start_sec, "end": end_sec})
+        return intervals
+
+    if st.button("✂️ ចាប់ផ្តើមកាត់វីដេអូជាបំណែកៗ (.ZIP)"):
+        if not st.session_state.get("uploaded_video_file"):
+            st.warning("⚠️ សូម Upload វីដេអូនៅផ្ទាំង «វីដេអូ» ជាមុនសិន!")
+        elif not st.session_state.script_input.strip():
+            st.warning("⚠️ សូមបញ្ចូលស្គ្រីបដែលមាន Timestamps នៅផ្ទាំង «ស្គ្រីប AI» ជាមុនសិន!")
+        else:
+            intervals = parse_time_intervals(st.session_state.script_input)
+            if not intervals:
+                st.error("❌ រកមិនឃើញទម្រង់ Timestamps ក្នុងស្គ្រីបទេ។ (ឧទាហរណ៍: [00:00 - 00:05])")
+            else:
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                try:
+                    tfile = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
+                    st.session_state.uploaded_video_file.seek(0)
+                    tfile.write(st.session_state.uploaded_video_file.read())
+                    tfile.close()
+
+                    cap = cv2.VideoCapture(tfile.name)
+                    fps = cap.get(cv2.CAP_PROP_FPS)
+                    if fps == 0 or fps is None:
+                        fps = 25.0
+                    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+                    zip_io = io.BytesIO()
+                    total_clips = len(intervals)
+
+                    with zipfile.ZipFile(zip_io, mode='w', compression=zipfile.ZIP_DEFLATED) as zipf:
+                        for i, interval in enumerate(intervals):
+                            status_text.info(f"✂️ កំពុងកាត់កំណាត់ទី {i+1} នៃ {total_clips} ({interval['name']})...")
+                            
+                            output_clip_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
+                            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                            out = cv2.VideoWriter(output_clip_path, fourcc, fps, (width, height))
+
+                            start_frame = int(interval['start'] * fps)
+                            end_frame = int(interval['end'] * fps)
+
+                            cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+                            current_frame = start_frame
+
+                            while current_frame <= end_frame:
+                                ret, frame = cap.read()
+                                if not ret:
+                                    break
+                                out.write(frame)
+                                current_frame += 1
+
+                            out.release()
+
+                            if os.path.exists(output_clip_path) and os.path.getsize(output_clip_path) > 0:
+                                zipf.write(output_clip_path, arcname=f"clip_{interval['name']}.mp4")
+                                os.remove(output_clip_path)
+
+                            progress_bar.progress(int((i + 1) / total_clips * 100))
+
+                    cap.release()
+                    if os.path.exists(tfile.name):
+                        os.remove(tfile.name)
+
+                    st.session_state.split_zip_buffer = zip_io.getvalue()
+                    status_text.success("🎉 កាត់វីដេអូជាបំណែកៗ និងវេចខ្ចប់ក្នុង ZIP រួចរាល់ជាស្រេច!")
+                except Exception as e:
+                    st.error(f"មានបញ្ហាក្នុងការកាត់វីដេអូ: {e}")
+
+    if st.session_state.get("split_zip_buffer"):
+        st.markdown("---")
+        st.download_button(
+            label="📥 ទាញយកកញ្ចប់វីដេអូជាបំណែកៗ (.ZIP)",
+            data=st.session_state.split_zip_buffer,
+            file_name="khmer_video_clips.zip",
+            mime="application/zip",
+            key="download_split_zip"
+        )
+
+# -------------------------------------------------------------
+# 4. ផ្ទាំងបកប្រែ (Translation & Settings)
+# -------------------------------------------------------------
+with tab_translate:
+    st.subheader("🌐 ការកំណត់ម៉ាស៊ីនបកប្រែ")
+    trans_engine = st.selectbox("ម៉ាស៊ីនបកប្រែ:", ("✨ Gemini", "Google Translate Pro"))
+    col_l1, col_l2 = st.columns(2)
+    with col_l1:
+        source_lang = st.selectbox("ភាសាដើម", ["អង់គ្លេស (En)", "ថៃ (Th)", "ចិន (Zh)"])
+    with col_l2:
+        target_lang = st.selectbox("បកប្រែទៅ", ["🇰🇭 ខ្មែរ (Khmer)"])
+
+# -------------------------------------------------------------
+# 5. ផ្ទាំងសំឡេង AI (Voice Dubbing & Edge-TTS)
+# -------------------------------------------------------------
+with tab_audio:
+    st.subheader("🎙️ ជ្រើសរើសសំឡេងនិយាយ (Edge-TTS)")
+    voice_type = st.radio("សំឡេងនិយាយ:", ("👩 ស្រី (Sreymom)", "👨 ប្រុស (Piseth)"))
+    selected_voice = "km-KH-SreymomNeural" if "ស្រី" in voice_type else "km-KH-PisethNeural"
+
+    st.markdown("---")
+    st.subheader("📝 បម្លែងស្គ្រីបពីផ្ទាំង «ស្គ្រីប AI» ទៅជាអូឌីយ៉ូ ZIP")
+    st.info("ស្គ្រីបដែលបានសរសេរនៅផ្ទាំងទី ២ នឹងត្រូវយកមកប្រើប្រាស់ទីនេះដោយស្វ័យប្រវត្តិ។")
+
+    async def generate_tts_safe(text, voice, output_path, rate="+0%", pitch="+0Hz"):
+        for attempt in range(3):
+            try:
+                communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
+                await communicate.save(output_path)
+                if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                    return True
+            except Exception:
+                if attempt == 2:
+                    return False
+                await asyncio.sleep(1)
+        return False
+
+    def parse_timestamps(text):
+        pattern = r'\[\s*(\d{1,2}:\d{2})\s*(?:-\s*(\d{1,2}:\d{2}))?\s*\]\s*(.*)'
+        matches = re.findall(pattern, text)
+        dialogues = []
+        for match in matches:
+            start_str = match[0]
+            end_str = match[1] if match[1] else match[0]
+            content = match[2].strip()
+            if content:
+                filename_safe = f"[{start_str} - {end_str}]".replace(":", "-")
+                dialogues.append({"time_label": filename_safe, "text": content})
+        return dialogues
+
+    if st.button("🎙️ ចាប់ផ្តើមបង្កើតកញ្ចប់អូឌីយ៉ូ ZIP តាម Timestamps"):
+        script_text = st.session_state.script_input
+        if not script_text.strip():
+            st.warning("⚠️ សូមបញ្ចូលស្គ្រីបនៅផ្ទាំង «ស្គ្រីប AI» ជាមុនសិន!")
+        else:
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            try:
+                dialogues = parse_timestamps(script_text)
+                if not dialogues:
+                    st.error("❌ ទម្រង់ Timestamps ក្នុងស្គ្រីបមិនត្រឹមត្រូវទេ។")
+                else:
+                    total_items = len(dialogues)
+                    zip_io = io.BytesIO()
                     
+                    with zipfile.ZipFile(zip_io, mode='w', compression=zipfile.ZIP_DEFLATED) as zipf:
+                        for i, item in enumerate(dialogues):
+                            status_text.info(f"🎙️ កំពុងបង្កើតសំឡេងទី {i+1} នៃ {total_items}...")
+                            chunk_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3').name
+                            asyncio.run(generate_tts_safe(item["text"], selected_voice, chunk_path))
+                            
+                            if os.path.exists(chunk_path) and os.path.getsize(chunk_path) > 0:
+                                arcname = f"{item['time_label']}.mp3"
+                                zipf.write(chunk_path, arcname=arcname)
+                                os.remove(chunk_path)
+                            
+                            time.sleep(0.05)
+                            progress_bar.progress(int((i + 1) / total_items * 100))
+
+                    st.session_state.zip_buffer = zip_io.getvalue()
+                    status_text.success("🎉 បង្កើតកញ្ចប់អូឌីយ៉ូ ZIP ជោគជ័យ ១០០%!")
+            except Exception as e:
+                st.error(f"មានបញ្ហាកើតឡើង: {e}")
+
+# -------------------------------------------------------------
+# 6. ផ្ទាំងអក្សរ (Subtitle Styling)
+# -------------------------------------------------------------
+with tab_sub:
+    st.subheader("🔤 ការកំណត់រចនាប័ទ្មអក្សរ Subtitle")
+    font_choice = st.selectbox("Font អក្សរ:", ("Battambang", "Siemreap", "Moul", "Bayon"))
+    color_choice = st.selectbox("ពណ៌អក្សរ:", ("ស (White)", "លឿង (Yellow)"))
+
+# -------------------------------------------------------------
+# 7. ផ្ទាំងទាញយក (Download Section)
+# -------------------------------------------------------------
+with tab_download:
+    st.subheader("📥 ទាញយកលទ្ធផលអូឌីយ៉ូ")
+    if st.session_state.zip_buffer:
+        st.success("🎉 កញ្ចប់អូឌីយ៉ូតាម Timestamps រួចរាល់សម្រាប់ទាញយកហើយ!")
+        st.download_button(
+            label="📥 ទាញយកកញ្ចប់អូឌីយ៉ូទាំងអស់ (.ZIP)",
+            data=st.session_state.zip_buffer,
+            file_name="khmer_movie_audio_chunks.zip",
+            mime="application/zip"
+        )
+    else:
+        st.info("មិនទាន់មានលទ្ធផលអូឌីយ៉ូទេ!")
+
+# -------------------------------------------------------------
+# 8. ផ្ទាំងរីដេអូម (Movie Recap History)
+# -------------------------------------------------------------
+with tab_recap:
+    st.subheader("🎞️ ប្រវត្តិរីដេអូម (Movie Recap History)")
+    st.info("ប្រវត្តិវីដេអូសម្រាយរឿងដែលបានបង្កើតនឹងបង្ហាញនៅទីនេះ។")
