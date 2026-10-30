@@ -4,7 +4,7 @@ import edge_tts
 import os
 import tempfile
 import re
-import google.generativeai as genai
+from google import genai
 from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip
 
 # 🌟 កំណត់ទម្រង់ទំព័រឱ្យធំទូលាយស្អាត (Wide Mode)
@@ -50,9 +50,9 @@ st.markdown("""
 
 # 📌 ចំណងជើងចម្បង
 st.markdown("<h2 style='text-align: center; color: #a78bfa;'>🎬 Khmer Video AI Pro (Auto-Script & Dubbing)</h2>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #94a3b8;'>ប្រព័ន្ធទាញយកស្គ្រីប និងបកប្រែអូតូដោយ Gemini API</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8;'>ប្រព័ន្ធទាញយកស្គ្រីប និងបកប្រែអូតូដោយ Google GenAI SDK ថ្មី</p>", unsafe_allow_html=True)
 
-# 🔑 ប្រអប់សម្រាប់វាយបញ្ចូល API Key នៅលើអេក្រង់ផ្ទាល់ (ងាយស្រួលប្ដូរ)
+# 🔑 ប្រអប់សម្រាប់វាយបញ្ចូល API Key (AQ...) នៅលើ Sidebar
 st.sidebar.markdown("---")
 st.sidebar.subheader("⚙️ ការកំណត់ API Key")
 user_api_key = st.sidebar.text_input("🔑 បញ្ចូល Gemini API Key របស់អ្នក:", type="password", value="")
@@ -69,7 +69,7 @@ if "final_video_bytes" not in st.session_state:
     st.session_state.final_video_bytes = None
 
 # -------------------------------------------------------------
-# 1. ផ្ទាំងវីដេអូ និង Gemini Auto-Script
+# 1. ផ្ទាំងវីដេអូ និង Gemini Auto-Script (GenAI SDK ថ្មី)
 # -------------------------------------------------------------
 with tab_video:
     st.subheader("🎬 បញ្ចូលវីដេអូសម្រាប់ទាញយកស្គ្រីបអូតូ")
@@ -93,21 +93,22 @@ with tab_video:
             else:
                 with st.spinner("⏳ Gemini AI កំពុងអានវីដេអូ និងបង្កើតស្គ្រីបព្រមទាំង Timestamps... (រង់ចាំបន្តិច)"):
                     try:
-                        genai.configure(api_key=user_api_key.strip())
+                        # ប្រើប្រាស់ Client ថ្មីរបស់ Google GenAI SDK
+                        client = genai.Client(api_key=user_api_key.strip())
                         
                         tfile_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                         current_video.seek(0)
                         tfile_temp.write(current_video.read())
                         tfile_temp.close()
                         
-                        video_file = genai.upload_file(path=tfile_temp.name)
+                        # Upload វីដេអូតាម Client ថ្មី
+                        video_file = client.files.upload(file=tfile_temp.name)
                         
                         import time
                         while video_file.state.name == "PROCESSING":
                             time.sleep(2)
-                            video_file = genai.get_file(video_file.name)
+                            video_file = client.files.get(name=video_file.name)
                             
-                        model = genai.GenerativeModel('gemini-1.5-pro')
                         prompt = """
                         សូមស្ដាប់សំឡេងក្នុងវីដេអូនោះ រួចសរសេរជាស្គ្រីបសាច់រឿងជាភាសាខ្មែរដែលមានដាក់កាលកំណត់ពេល (Timestamps) ក្នុងទម្រង់បែបនេះឱ្យបានត្រឹមត្រូវ:
                         [00:00 - 00:05] អត្ថបទនិយាយ...
@@ -115,11 +116,14 @@ with tab_video:
                         សូមចេញលទ្ធផលជា Timestamps និងអត្ថបទសុទ្ធសាធសម្រាប់យកទៅធ្វើ Voiceover។
                         """
                         
-                        response = model.generate_content([video_file, prompt])
+                        response = client.models.generate_content(
+                            model='gemini-2.5-flash',
+                            contents=[video_file, prompt]
+                        )
                         st.session_state.script_input = response.text
                         
                         os.remove(tfile_temp.name)
-                        genai.delete_file(video_file.name)
+                        client.files.delete(name=video_file.name)
                         
                         st.success("🎉 ទាញយក និងបកប្រែស្គ្រីបអូតូបានជោគជ័យ!")
                     except Exception as e:
@@ -260,4 +264,4 @@ with tab_download:
         )
     else:
         st.info("មិនទាន់មានវីដេអូទេ! សូមបំពេញដំណើរការនៅផ្ទាំងមុនៗសិន។")
-    
+                            
