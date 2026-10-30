@@ -54,14 +54,13 @@ st.sidebar.subheader("⚙️ ការកំណត់ Gemini API Key")
 user_api_key = st.sidebar.text_input("🔑 បញ្ចូល API Key របស់អ្នក:", type="password", value="")
 
 # 🗂️ បែងចែកផ្ទាំង (Tabs)
-tab_video, tab_script, tab_split, tab_translate, tab_audio, tab_sub, tab_download, tab_recap = st.tabs([
+tab_video, tab_script, tab_split, tab_translate, tab_audio, tab_sub, tab_recap = st.tabs([
     "🎬 វីដេអូ", 
     "📝 ស្គ្រីប AI",
     "✂️ កាត់វីដេអូ",
     "🌐 បកប្រែ", 
     "🎙️ សំឡេង", 
     "🔤 អក្សរ", 
-    "📥 ទាញយក", 
     "🎞️ រីដេអូម"
 ])
 
@@ -83,7 +82,7 @@ if "recap_history" not in st.session_state:
 with tab_video:
     st.subheader("🎬 បញ្ចូលវីដេអូសម្រាប់កាត់ត និងសម្រាយ")
     
-    uploaded_video = st.file_uploader("បន្ថែមវីដេអូ (MP4, MKV, MOV, AVI)", type=["mp4", "mov", "mkv", "avi", "webm"])
+    uploaded_video = st.file_uploader("បន្ថែមវីដេអូ (MP4, MKV, MOV, AVI)", type=["mp4", "mov", "mkv", "avi", "webm"], key="vid_input_main")
     if uploaded_video:
         st.session_state.uploaded_video_file = uploaded_video
         st.success("✅ បានផ្ទុកវីដេអូជោគជ័យ!")
@@ -94,29 +93,30 @@ with tab_video:
     resolution = st.radio(
         "ជ្រើសរើសកម្រិតច្បាស់:",
         ("⚡ លឿន 480p", "✨ ល្អ 720p", "💎 ខ្ពស់ (ដើម)"),
-        horizontal=True
+        horizontal=True,
+        key="res_radio_main"
     )
 
 # -------------------------------------------------------------
-# 2. ផ្ទាំងស្គ្រីប AI (Script Generator & Strict Khmer Format)
+# 2. ផ្ទាំងស្គ្រីប AI (Script Generator)
 # -------------------------------------------------------------
 with tab_script:
     st.subheader("📝 បង្កើតស្គ្រីបជាភាសាខ្មែរ និងកំណត់ពេលវេលាអូតូពី Gemini AI")
-    st.markdown("<p style='color: #94a3b8;'>បញ្ចូលបញ្ជាដើម្បីឱ្យ AI ចងក្រងស្គ្រីបតាមទម្រង់ [00:01 - 00:04] អត្ថបទ ជាភាសាខ្មែរដាច់ខាត៖</p>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #94a3b8;'>បញ្ជា AI ឱ្យសរសេរស្គ្រីបតាមទម្រង់ [00:01 - 00:04] ជាភាសាខ្មែរដាច់ខាត៖</p>", unsafe_allow_html=True)
     
     ai_prompt_input = st.text_area(
         "បញ្ជា AI (ឧទាហរណ៍: សូមសរសេរស្គ្រីបសង្ខេបសាច់រឿង):",
         height=100,
-        key="ai_prompt_box"
+        key="ai_prompt_box_unique"
     )
 
-    if st.button("🚀 ឱ្យ Gemini AI សរសេរស្គ្រីបខ្មែរអូតូ"):
+    if st.button("🚀 ឱ្យ Gemini AI សរសេរស្គ្រីបខ្មែរអូតូ", key="btn_gen_script"):
         if not user_api_key.strip():
             st.warning("⚠️ សូមវាយបញ្ចូល Gemini API Key នៅ Sidebar ខាងឆ្វេងជាមុនសិន!")
         elif not ai_prompt_input.strip():
             st.warning("⚠️ សូមសរសេរបញ្ជា (Prompt) ជាមុនសិន!")
         else:
-            with st.spinner("⏳ Gemini AI កំពុងសរសេរស្គ្រីបជាភាសាខ្មែរ... (រង់ចាំបន្តិច)"):
+            with st.spinner("⏳ Gemini AI កំពុងសរសេរស្គ្រីបជាភាសាខ្មែរ..."):
                 try:
                     client = genai.Client(api_key=user_api_key.strip())
                     strict_prompt = (
@@ -140,15 +140,14 @@ with tab_script:
         "កែសម្រួលអត្ថបទ ឬ Timestamps នៅទីនេះ:",
         value=st.session_state.script_input,
         height=250,
-        key="main_script_editor"
+        key="main_script_editor_unique"
     )
 
 # -------------------------------------------------------------
-# 3. ផ្ទាំងកាត់វីដេអូជាកំណាត់ៗតាម Timestamps (Video Splitter)
+# 3. ផ្ទាំងកាត់វីដេអូ (Video Splitter)
 # -------------------------------------------------------------
 with tab_split:
     st.subheader("✂️ កាត់វីដេអូជាបំណែកៗតាម Timestamps")
-    st.markdown("<p style='color: #94a3b8;'>ប្រព័ន្ធនឹងយករស្គ្រីបខាងលើមកកាត់វីដេអូចេញជាកំណាត់ៗស្វ័យប្រវត្តក្នុងកញ្ចប់ ZIP៖</p>", unsafe_allow_html=True)
     
     def time_to_seconds(time_str):
         parts = list(map(int, time_str.split(':')))
@@ -171,7 +170,7 @@ with tab_split:
     import zipfile
     import io
 
-    if st.button("✂️ ចាប់ផ្តើមកាត់វីដេអូជាបំណែកៗ (.ZIP)"):
+    if st.button("✂️ ចាប់ផ្តើមកាត់វីដេអូជាបំណែកៗ (.ZIP)", key="btn_split_vid"):
         if not st.session_state.get("uploaded_video_file"):
             st.warning("⚠️ សូម Upload វីដេអូនៅផ្ទាំង «វីដេអូ» ជាមុនសិន!")
         elif not st.session_state.script_input.strip():
@@ -236,7 +235,7 @@ with tab_split:
                     st.session_state.split_zip_buffer = zip_io.getvalue()
                     status_text.success("🎉 កាត់វីដេអូជាបំណែកៗ និងវេចខ្ចប់ក្នុង ZIP រួចរាល់ជាស្រេច!")
                 except Exception as e:
-                    st.error(f"មានបញ្ហាក្នុងការកាត់វីដេអូ: {e}")
+                    st.error(f"មានបញ្ហាក្នុងการកាត់វីដេអូ: {e}")
 
     if st.session_state.get("split_zip_buffer"):
         st.markdown("---")
@@ -245,31 +244,31 @@ with tab_split:
             data=st.session_state.split_zip_buffer,
             file_name="khmer_video_clips.zip",
             mime="application/zip",
-            key="download_split_zip"
+            key="download_split_zip_unique"
         )
 
 # -------------------------------------------------------------
-# 4. ផ្ទាំងបកប្រែ (Translation & Settings)
+# 4. ផ្ទាំងបកប្រែ (Translation)
 # -------------------------------------------------------------
 with tab_translate:
     st.subheader("🌐 ការកំណត់ម៉ាស៊ីនបកប្រែ")
-    trans_engine = st.selectbox("ម៉ាស៊ីនបកប្រែ:", ("✨ Gemini", "Google Translate Pro"))
+    trans_engine = st.selectbox("ម៉ាស៊ីនបកប្រែ:", ("✨ Gemini", "Google Translate Pro"), key="trans_eng_unique")
     col_l1, col_l2 = st.columns(2)
     with col_l1:
-        source_lang = st.selectbox("ភាសាដើម", ["អង់គ្លេស (En)", "ថៃ (Th)", "ចិន (Zh)"])
+        source_lang = st.selectbox("ភាសាដើម", ["អង់គ្លេស (En)", "ថៃ (Th)", "ចិន (Zh)"], key="src_lang_unique")
     with col_l2:
-        target_lang = st.selectbox("បកប្រែទៅ", ["🇰🇭 ខ្មែរ (Khmer)"])
+        target_lang = st.selectbox("បកប្រែទៅ", ["🇰🇭 ខ្មែរ (Khmer)"], key="tgt_lang_unique")
 
 # -------------------------------------------------------------
-# 5. ផ្ទាំងសំឡេង AI (Voice Dubbing & Edge-TTS - Single MP3 Audio)
+# 5. ផ្ទាំងសំឡេង AI (Edge-TTS Single MP3 Audio)
 # -------------------------------------------------------------
 with tab_audio:
     st.subheader("🎙️ បម្លែងស្គ្រីបទៅជាសំឡេង MP3 តែមួយ (Voiceover)")
-    voice_type = st.radio("សំឡេងនិយាយ:", ("👩 ស្រី (Sreymom)", "👨 ប្រុស (Piseth)"))
+    voice_type = st.radio("សំឡេងនិយាយ:", ("👩 ស្រី (Sreymom)", "👨 ប្រុស (Piseth)"), key="voice_type_unique")
     selected_voice = "km-KH-SreymomNeural" if "ស្រី" in voice_type else "km-KH-PisethNeural"
 
     st.markdown("---")
-    st.info("ប្រព័ន្ធនឹងទាញយកអត្ថបទទាំងអស់ពីផ្ទាំង «ស្គ្រីប AI» មកបម្លែងជាសំឡេង MP3 តែមួយដោយរលូនសម្រាប់យកទៅកាត់ត។")
+    st.info("ប្រព័ន្ធនឹងទាញយកអត្ថបទសុទ្ធពីផ្ទាំង «ស្គ្រីប AI» មកបម្លែងជាសំឡេង MP3 តែមួយសម្រាប់យកទៅកាត់ត។")
 
     async def generate_single_tts(text, voice, output_path):
         try:
@@ -281,14 +280,13 @@ with tab_audio:
             pass
         return False
 
-    if st.button("🎙️ ចាប់ផ្ដើមបង្កើតសំឡេង MP3 តែមួយ"):
+    if st.button("🎙️ ចាប់ផ្ដើមបង្កើតសំឡេង MP3 តែមួយ", key="btn_gen_audio_unique"):
         script_text = st.session_state.script_input
         if not script_text.strip():
             st.warning("⚠️ សូមបញ្ចូលស្គ្រីបនៅផ្ទាំង «ស្គ្រីប AI» ជាមុនសិន!")
         else:
-            with st.spinner("⏳ កំពុងបង្កើតសំឡេង MP3 តែមួយ... (រង់ចាំបន្តិច)"):
+            with st.spinner("⏳ កំពុងបង្កើតសំឡេង MP3 តែមួយ..."):
                 try:
-                    # Clean timestamps to generate clean narration audio
                     clean_text = re.sub(r'\[\s*\d{1,2}:\d{2}\s*(?:-\s*\d{1,2}:\d{2})?\s*\]', '', script_text)
                     clean_text = re.sub(r'\n\s*\n', '\n', clean_text).strip()
                     
@@ -304,7 +302,7 @@ with tab_audio:
                             os.remove(temp_audio.name)
                         st.success("🎉 បង្កើតសំឡេង MP3 បានជោគជ័យរួចរាល់!")
                     else:
-                        st.error("❌ មានបញ្ហាក្នុងการបង្កើតសំឡេង!")
+                        st.error("❌ មានបញ្ហាក្នុងការបង្កើតសំឡេង!")
                 except Exception as e:
                     st.error(f"មានបញ្ហា: {e}")
 
@@ -316,7 +314,8 @@ with tab_audio:
             label="📥 ទាញយកឯកសារសំឡេង MP3",
             data=st.session_state.single_audio_bytes,
             file_name="khmer_voiceover_recap.mp3",
-            mime="audio/mp3"
+            mime="audio/mp3",
+            key="download_audio_unique_tab5"
         )
 
 # -------------------------------------------------------------
@@ -324,28 +323,13 @@ with tab_audio:
 # -------------------------------------------------------------
 with tab_sub:
     st.subheader("🔤 ការកំណត់រចនាប័ទ្មអក្សរ Subtitle")
-    font_choice = st.selectbox("Font អក្សរ:", ("Battambang", "Siemreap", "Moul", "Bayon"))
-    color_choice = st.selectbox("ពណ៌អក្សរ:", ("ស (White)", "លឿង (Yellow)"))
+    font_choice = st.selectbox("Font អក្សរ:", ("Battambang", "Siemreap", "Moul", "Bayon"), key="font_sub_unique")
+    color_choice = st.selectbox("ពណ៌អក្សរ:", ("ស (White)", "លឿង (Yellow)"), key="color_sub_unique")
 
 # -------------------------------------------------------------
-# 7. ផ្ទាំងទាញយក (Download Section)
-# -------------------------------------------------------------
-with tab_download:
-    st.subheader("📥 ទាញយកលទ្ធផលអូឌីយ៉ូ MP3")
-    if st.session_state.get("single_audio_bytes"):
-        st.success("🎉 សំឡេង MP3 រួចរាល់សម្រាប់ទាញយកហើយ!")
-        st.download_button(
-            label="📥 ទាញយកឯកសារសំឡេង MP3",
-            data=st.session_state.single_audio_bytes,
-            file_name="khmer_voiceover_recap.mp3",
-            mime="audio/mp3"
-        )
-    else:
-        st.info("មិនទាន់មានលទ្ធផលអូឌីយ៉ូទេ!")
-
-# -------------------------------------------------------------
-# 8. ផ្ទាំងរីដេអូម (Movie Recap History)
+# 7. ផ្ទាំងរីដេអូម (Movie Recap History)
 # -------------------------------------------------------------
 with tab_recap:
     st.subheader("🎞️ ប្រវត្តិរីដេអូម (Movie Recap History)")
     st.info("ប្រវត្តិវីដេអូសម្រាយរឿងដែលបានបង្កើតនឹងបង្ហាញនៅទីនេះ។")
+    
