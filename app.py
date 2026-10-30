@@ -52,7 +52,7 @@ st.markdown("""
 st.markdown("<h2 style='text-align: center; color: #a78bfa;'>🎬 Khmer Video AI Pro (Auto-Script & Dubbing)</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #94a3b8;'>ប្រព័ន្ធទាញយកស្គ្រីប និងបកប្រែអូតូដោយ Google GenAI SDK ថ្មី</p>", unsafe_allow_html=True)
 
-# 🔑 ប្រអប់សម្រាប់វាយបញ្ចូល API Key (AQ...) នៅលើ Sidebar
+# 🔑 ប្រអប់សម្រាប់វាយបញ្ចូល API Key (AQ...) លើ Sidebar
 st.sidebar.markdown("---")
 st.sidebar.subheader("⚙️ ការកំណត់ API Key")
 user_api_key = st.sidebar.text_input("🔑 បញ្ចូល Gemini API Key របស់អ្នក:", type="password", value="")
@@ -69,7 +69,7 @@ if "final_video_bytes" not in st.session_state:
     st.session_state.final_video_bytes = None
 
 # -------------------------------------------------------------
-# 1. ផ្ទាំងវីដេអូ និង Gemini Auto-Script (GenAI SDK ថ្មី)
+# 1. ផ្ទាំងវីដេអូ និង Gemini Auto-Script
 # -------------------------------------------------------------
 with tab_video:
     st.subheader("🎬 បញ្ចូលវីដេអូសម្រាប់ទាញយកស្គ្រីបអូតូ")
@@ -93,7 +93,6 @@ with tab_video:
             else:
                 with st.spinner("⏳ Gemini AI កំពុងអានវីដេអូ និងបង្កើតស្គ្រីបព្រមទាំង Timestamps... (រង់ចាំបន្តិច)"):
                     try:
-                        # ប្រើប្រាស់ Client ថ្មីរបស់ Google GenAI SDK
                         client = genai.Client(api_key=user_api_key.strip())
                         
                         tfile_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
@@ -101,7 +100,6 @@ with tab_video:
                         tfile_temp.write(current_video.read())
                         tfile_temp.close()
                         
-                        # Upload វីដេអូតាម Client ថ្មី
                         video_file = client.files.upload(file=tfile_temp.name)
                         
                         import time
@@ -110,14 +108,15 @@ with tab_video:
                             video_file = client.files.get(name=video_file.name)
                             
                         prompt = """
-                        សូមស្ដាប់សំឡេងក្នុងវីដេអូនោះ រួចសរសេរជាស្គ្រីបសាច់រឿងជាភាសាខ្មែរដែលមានដាក់កាលកំណត់ពេល (Timestamps) ក្នុងទម្រង់បែបនេះឱ្យបានត្រឹមត្រូវ:
+                        សូមស្ដាប់សំឡេងក្នុងវីដេអូនោះ រួចសរសេរជាស្គ្រីបសាច់រឿងជាភាសាខ្មែរដែលមានដាក់កាលកំណត់ពេល (Timestamps) ក្នុងទម្រង់បែបນີ້ឱ្យបានត្រឹមត្រូវ:
                         [00:00 - 00:05] អត្ថបទនិយាយ...
                         [00:05 - 00:10] អត្ថបទនិយាយ...
                         សូមចេញលទ្ធផលជា Timestamps និងអត្ថបទសុទ្ធសាធសម្រាប់យកទៅធ្វើ Voiceover។
                         """
                         
+                        # 🔄 បានប្ដូរមកប្រើ Model gemini-3.8-flash តាមការណែនាំរបស់ប្រព័ន្ធ
                         response = client.models.generate_content(
-                            model='gemini-2.5-flash',
+                            model='gemini-3.8-flash',
                             contents=[video_file, prompt]
                         )
                         st.session_state.script_input = response.text
@@ -264,4 +263,4 @@ with tab_download:
         )
     else:
         st.info("មិនទាន់មានវីដេអូទេ! សូមបំពេញដំណើរការនៅផ្ទាំងមុនៗសិន។")
-                            
+    
