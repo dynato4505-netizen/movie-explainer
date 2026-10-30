@@ -9,7 +9,7 @@ from moviepy.editor import VideoFileClip, AudioFileClip, CompositeAudioClip
 
 # 🌟 កំណត់ទម្រង់ទំព័រឱ្យធំទូលាយស្អាត (Wide Mode)
 st.set_page_config(
-    page_title="Khmer Video AI Pro - បញ្ចូលសំឡេង AI លើវីដេអូ",
+    page_title="Khmer Video AI Pro - Auto Script & Dubbing",
     page_icon="🎬",
     layout="wide"
 )
@@ -50,7 +50,7 @@ st.markdown("""
 
 # 📌 ចំណងជើងចម្បង
 st.markdown("<h2 style='text-align: center; color: #a78bfa;'>🎬 Khmer Video AI Pro (Auto-Script & Dubbing)</h2>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #94a3b8;'>ប្រព័ន្ធទាញយកស្គ្រីប និងបកប្រែអូតូដោយ Google GenAI SDK ថ្មី</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8;'>ប្រព័ន្ធទាញយកស្គ្រីប និងបកប្រែអូតូដោយ Gemini AI ពេញលេញ</p>", unsafe_allow_html=True)
 
 # 🔑 ប្រអប់សម្រាប់វាយបញ្ចូល API Key (AQ...) លើ Sidebar
 st.sidebar.markdown("---")
@@ -108,13 +108,12 @@ with tab_video:
                             video_file = client.files.get(name=video_file.name)
                             
                         prompt = """
-                        សូមស្ដាប់សំឡេងក្នុងវីដេអូនោះ រួចសរសេរជាស្គ្រីបសាច់រឿងជាភាសាខ្មែរដែលមានដាក់កាលកំណត់ពេល (Timestamps) ក្នុងទម្រង់បែបນີ້ឱ្យបានត្រឹមត្រូវ:
+                        សូមស្ដាប់សំឡេងក្នុងវីដេអូនោះ រួចសរសេរជាស្គ្រីបសាច់រឿងជាភាសាខ្មែរដែលមានដាក់កាលកំណត់ពេល (Timestamps) ក្នុងទម្រង់បែបនេះឱ្យបានត្រឹមត្រូវ:
                         [00:00 - 00:05] អត្ថបទនិយាយ...
                         [00:05 - 00:10] អត្ថបទនិយាយ...
                         សូមចេញលទ្ធផលជា Timestamps និងអត្ថបទសុទ្ធសាធសម្រាប់យកទៅធ្វើ Voiceover។
                         """
                         
-                        # 🔄 បានប្ដូរមកប្រើ Model gemini-3.8-flash តាមការណែនាំរបស់ប្រព័ន្ធ
                         response = client.models.generate_content(
                             model='gemini-3.8-flash',
                             contents=[video_file, prompt]
@@ -263,4 +262,4 @@ with tab_download:
         )
     else:
         st.info("មិនទាន់មានវីដេអូទេ! សូមបំពេញដំណើរការនៅផ្ទាំងមុនៗសិន។")
-    
+                                
