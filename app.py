@@ -4,7 +4,7 @@ import edge_tts
 import os
 import tempfile
 import re
-from moviepy import VideoFileClip, AudioFileClip
+from moviepy import VideoFileClip, AudioFileClip, CompositeAudioClip
 
 # 🌟 កំណត់ទម្រង់ទំព័រឱ្យធំទូលាយ (Wide Mode)
 st.set_page_config(
@@ -77,8 +77,16 @@ with tab_script:
 with tab_merge:
     st.subheader("🎥 បង្កើតសំឡេង AI និងច្របាច់បញ្ចូលគ្នាជាវីដេអូចុងក្រោយ")
     
-    voice_choice = st.radio("ជ្រើសរើសសំឡេងនិយាយ:", ("👩 ស្រី (Sreymom)", "👨 ប្រុស (Piseth)"), key="voice_radio_unique_key")
-    selected_voice = "km-KH-SreymomNeural" if "ស្រី" in voice_choice else "km-KH-PisethNeural"
+    col_v1, col_v2, col_v3 = st.columns(3)
+    with col_v1:
+        voice_choice = st.radio("ជ្រើសរើសសំឡេងនិយាយ:", ("👩 ស្រី (Sreymom)", "👨 ប្រុស (Piseth)"), key="voice_radio_unique_key")
+        selected_voice = "km-KH-SreymomNeural" if "ស្រី" in voice_choice else "km-KH-PisethNeural"
+    with col_v2:
+        # 🎚️ សារ៉េកម្រិតសំឡេង AI
+        ai_volume = st.slider("🎚️ កម្រិតសំឡេង AI", min_value=0.1, max_value=2.0, value=1.0, step=0.1)
+    with col_v3:
+        # 🎚️ សារ៉េកម្រិតសំឡេងដើមឱ្យខ្សាវៗ (កុំឱ្យបាំងសំឡេង AI)
+        orig_volume = st.slider("🎚️ កម្រិតសំឡេងដើម (ខ្សាវៗ)", min_value=0.0, max_value=0.5, value=0.1, step=0.05, help="0.0 គឺបិទសំឡេងដើមផ្ដាច់, 0.1 ដល់ 0.2 គឺលឺខ្សាវៗស្រទន់")
 
     async def generate_tts(text, voice, path):
         comm = edge_tts.Communicate(text, voice)
@@ -92,41 +100,46 @@ with tab_merge:
         else:
             with st.spinner("⏳ កំពុងបង្កើតសំឡេង និងច្របាច់បញ្ចូលវីដេអូ... (សូមរង់ចាំបន្តិច)"):
                 try:
-                    # Clean script for TTS (removing timestamps brackets for clean audio reading)
                     script = st.session_state.script_text
                     clean_text = re.sub(r'\[\s*\d{1,2}:\d{2}\s*(?:-\s*\d{1,2}:\d{2})?\s*\]', '', script)
                     clean_text = re.sub(r'\n\s*\n', '\n', clean_text).strip()
 
-                    # Save audio temp
                     audio_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp3')
                     audio_path = audio_temp.name
                     audio_temp.close()
 
                     asyncio.run(generate_tts(clean_text, selected_voice, audio_path))
 
-                    # Save video temp
                     vid_temp = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4')
                     st.session_state.uploaded_video.seek(0)
                     vid_temp.write(st.session_state.uploaded_video.read())
                     vid_temp_path = vid_temp.name
                     vid_temp.close()
 
-                    # Merge using MoviePy
                     output_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mp4').name
                     
                     video_clip = VideoFileClip(vid_temp_path)
-                    audio_clip = AudioFileClip(audio_path)
+                    ai_audio = AudioFileClip(audio_path)
 
-                    # Set audio to video
-                    final_clip = video_clip.with_audio(audio_clip)
+                    # 🎚️ កែតម្រូវកម្រិតសំឡេង AI
+                    ai_audio = ai_audio.with_volume_scaled(ai_volume)
+
+                    # 🎚️ စစ်ဆေးថាតើវីដេអូដើមមានសំឡេងឬអត់ រួចកែតម្រូវកម្រិតខ្សាវ
+                    if video_clip.audio is not None:
+                        orig_audio = video_clip.audio.with_volume_scaled(orig_volume)
+                        # បញ្ចូលសំឡេងទាំងពីរ (AI + សំឡេងដើមខ្សាវៗ) ចូលគ្នា
+                        final_audio = CompositeAudioClip([orig_audio, ai_audio])
+                    else:
+                        final_audio = ai_audio
+
+                    final_clip = video_clip.with_audio(final_audio)
                     final_clip.write_videofile(output_path, codec='libx264', audio_codec='aac', fps=24, logger=None)
 
                     with open(output_path, "rb") as f:
                         st.session_state.final_video_bytes = f.read()
 
-                    # Cleanup temp files
                     video_clip.close()
-                    audio_clip.close()
+                    ai_audio.close()
                     final_clip.close()
                     os.remove(audio_path)
                     os.remove(vid_temp_path)
@@ -134,7 +147,7 @@ with tab_merge:
 
                     st.success("🎉 បញ្ចូលវីដេអូ និងសំឡេងជោគជ័យ ១០០%!")
                 except Exception as e:
-                    st.error(f"មានបញ្ហាក្នុងការ Merge: {e}")
+                    st.error(f"មានបញ្ហាក្នុងการ Merge: {e}")
 
     if st.session_state.get("final_video_bytes"):
         st.markdown("---")
@@ -146,5 +159,5 @@ with tab_merge:
             file_name="final_recap_video.mp4",
             mime="video/mp4",
             key="download_final_video_unique_key"
-                    )
-        
+    )
+            
