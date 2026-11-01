@@ -2,3 +2,4 @@ streamlit
 edge-tts
 google-genai
 opencv-python
+moviepy
